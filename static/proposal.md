@@ -1,7 +1,7 @@
 # Wordle Solver and Evaluator
 Final project for 15418/618. Songyu Han and Joel Ye
 
-URL: https://github.com/joel99/parallel_final
+URL: [https://github.com/joel99/parallel_final](https://github.com/joel99/parallel_final)
 
 **Summary**: We will implement a [Wordle](https://www.nytimes.com/games/wordle/index.html) solver based on [information theory heuristics](https://www.youtube.com/watch?v=v68zYyaEmEA), evaluating performances on GHC and PSC machines.
 

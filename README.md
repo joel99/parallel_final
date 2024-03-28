@@ -11,6 +11,7 @@ URL: [https://github.com/joel99/parallel_final](https://github.com/joel99/parall
 - Final (TODO)
 
 ---
+## Proposal (Posted on main for convenience)
 
 ## Background
 Wordle is a game with the goal of guessing a 5 letter English word in as few guesses as possible. After each guess, you are told which letters in your guess match letters in the solution, and if they are also in the right position in the word. Below, we show a three-round game.
