@@ -19,7 +19,7 @@ Wordle is a game with the goal of guessing a 5 letter English word in as few gue
 
 A basic strategy is to minimize the average-case number of guesses for words drawn from a common word bank (1-10K words). This strategy is elaborated in this [3B1B video](https://www.youtube.com/watch?v=v68zYyaEmEA), and has three components:
 1. Compute the entropy of candidate answer words (probabilities drawn from a lookup table), given state of board.
-2. Compute the expected information gain $I(g)$ for a guess, which is equal to the entropy of the feedback given under the answer distribution.
+2. Compute the expected information gain \( I(g) \) for a guess, which is equal to the entropy of the feedback given under the answer distribution.
 3. Identify the guess with the best expected information gain. Loosely, guessing what we are least sure the feedback will be provides the most useful clue for future moves.
 This 1-step heuristic supports an approximate policy that chooses words based on their probability of correctness at the current iteration and a value function which maps the empirical future guesses needed based on \( f(I(g)) \).
 
