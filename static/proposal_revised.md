@@ -78,11 +78,14 @@ We will use the accompanying [code for the 3B1B video](https://github.com/3b1b/v
 **Plan to Achieve:**
 Minimally, we expect to:
 - Provide an serial implementation that reproduces the average score of 3B1B's wordle solver, and a vectorized python level implementation following above pseudocode. These should provide performance references on CPU/GPU.
-- Explore guess-loop, candidate-loop, and hybrid spatial parallelism on the scatter reduce operation with CPU thread level parallelism.
+- Explore guess-loop, candidate-loop, and hybrid spatial parallelism on the scatter reduce operation with CPU thread level parallelism on base wordle game.
 - Characterize changing workload requirements in different guess iterations and develop a work redistribuiton strategy based on these.
-- Provide a CUDA implementation of the solver (GHC?).
+- Provide a handwritten CUDA implementation of the solver (GHC?).
+- Benchmark performance on 6/7 letter wordle variants.
+- Test strategy for preserving probability computation across rounds (tentative?)
 
 **Hope to Achieve:**
+- Extend and benchmark performance on multi-board variants.
 - Demonstrate that accelerated solving enables an outer loop optimization of the empirical value function by evaluating against the test set.
 - Provide functionality to perform 2-step or deeper search instead of a 1-step heuristic, [described here](https://www.youtube.com/watch?v=fRed0Xmc2Wg).
 
