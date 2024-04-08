@@ -61,7 +61,8 @@ def solve(coloring: torch.Tensor, prior: torch.Tensor, answer: str | int, rounds
 The parallelism challenge is an efficient implementation of iterated scatter reduce on potentially large matrices (O(0.1-5)Gb).
 - A single round of scatter reduce can be implemented by _parallelizing along the guess and/or candidate dimensions_, with uncertain potential for optimizing color matrix and probability vector access patterns on cache line pulls. The scatter operation may be a bottleneck as it involves many workers writing to a single probability vector. This requires understanding of **memory locality** and **write contention**.
 - The maintained state over multiple rounds changes the number of viable candidates and thus could benefit from **work redistribution** if we parallelized over candidates at all. (May depend on how we update matrix)
-- Larger problems may require approximate solves to be tractable, which offers the opportunity to test the correctness degradation when we do approximate scatters with no need for syncing.
+- Larger problems may require approximate solves to be tractable, which offers the opportunity to test the correctness degradation when we do approximate scatters with less synchronization.
+- There are implementation uncertainties e.g. : Partitioning a full large matrix may not be beneficial vs recomputing string color matches on the fly.
 
 (This hits all the criteria for being a superset problem compared to the wire-routing homework assignments.)
 
@@ -96,20 +97,19 @@ Minimally, we expect to:
 We will begin with a low-worker count parallelism to get a sense of the problem scale. It may not be sufficiently large to justify many more cores or a GPU implementation (since the naive approach was suitable for the resource video.) If we do not get a satisfactory speedup, a GPU implementation would be interesting as the innnermost string comparison is a heterogeneous operation, and would perhaps motivate using a big lookup table instead of computing it on the fly.
 
 ## Schedule
-- 4/2:
-  - provide a serial implementation with uniform prior over words. (Stretch: Integrate external word frequency prior)
-- 4/8:
-  - provide test-bank evaluator and gather statistics about serial solve times.
-  - implement base passes on guess level and/or candidate level parallelism.
+- 4/12:
+  - provide a serial and pytorch implementation of the V0 algorithm with word frequencies integrated.
+  - provide test-bank evaluator and profile the two implementations.
 - 4/15 (4/16 milestone report)
-  - optimize (e.g. load balance, minimize communication, local aggregation) and profile the two types of parallelism; compare against serial in report.
+  - implement and profile base passes on guess level and candidate level parallelism, using shared memory and OpenMP
+  - experiment with different memory partitioning strategies
 - 4/22
-  - profile workload variability across different iterations of a solve and propose an adaptive parallelism strategy OR
+  - add workload rebalancing across turns
+  - scale problem size in number of letters in words 
   - implement CUDA solution, targeting candidate parallelism or both (since many threads to work with now)
 - 4/29
-  - identify limiting factors in current solutions  
-  - experiment with algorithmic improvements: outer-loop optimization of value function, 2+ depth search.
-  - experiment with parallelization improvements: attempts to minimize redundant calculation
+  - implement message-passing solver with MPI
+  - Maybe: extend problem size in number of boards to solve.
 - 5/5  
   - Writing up report and preparing poster.
 
