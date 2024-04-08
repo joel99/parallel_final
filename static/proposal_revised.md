@@ -47,6 +47,7 @@ def solve(coloring: torch.Tensor, prior: torch.Tensor, answer: str | int, rounds
     """
     probs = torch.zeros(len(coloring.unique()))
     for round in range(rounds):
+        probs.zero_()
         guess_feedback_entropy = torch.zeros(Word)
         for guess in range(coloring.size(0)):
             guess_labels = coloring[guess]
