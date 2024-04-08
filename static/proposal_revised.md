@@ -29,8 +29,7 @@ In terms of a parallel programming framework, we have the following dependencies
 
 Consider the following diagram that assumes a precomputed word compatibility matrix `color[guess][candidate]`. This word matrix is at a glance of ~size 10K x 10K, and contains color codes from `0-3^5`, i.e. 100Mb. The probability prior vector is a ~10Kb vector.
 
-
-![image](https://github.com/joel99/parallel_final/assets/14226466/61946a9c-7b13-4c3c-88a8-56884cfea590)
+![image](https://github.com/joel99/parallel_final/assets/14226466/f286778c-10e7-4216-8fe1-fa3f67aa2dc5)
 
 
 ---
