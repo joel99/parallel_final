@@ -3,18 +3,22 @@
  * #include "word.h"
 */
 
-#include <iostream>
-
-#define WORDLEN 8 // Maximum word length
-
 #ifndef WORD_H
 #define WORD_H
+
+#include <iostream>
+#include <vector>
+#include <cstring>
+
+#define WORDLEN 8 // Maximum word length
+#define NUMCOLORS 3 // Number of Board Colors
 
 /** Data Structure for a word */
 typedef struct word{
     char text[8];
 } word_t;
 
+typedef std::vector<word_t> wordlist_t;
 typedef int coloring_t;
 
 /**
@@ -26,9 +30,19 @@ typedef int coloring_t;
 coloring_t word_cmp(word_t &query, word_t &answer);
 
 /**
+ * Conversion function from string type to word type
+*/
+void str2word(std::string &source, word_t &dest);
+
+/**
  * Debugging Function: Visualize the coloring. ("-": grey, "y": yellow, "g": green)
 */
 void color_check(coloring_t coloring, word_t &query, word_t &answer);
+
+/**
+ * Debugging Function
+*/
+void word_print(word_t &word, char delim = '\n');
 
 /**
  * Coloring is coded by a base-3 representation of an integer. 
