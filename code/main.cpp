@@ -73,6 +73,12 @@ void simulate_games(
 
             // JY: This is the REDUCTION step, and where we'd need to balance...
             possibilities = get_possible_words(guess, pattern, possibilities);
+
+            // print size of possibilities
+            if (!quiet) {
+                std::cout << std::endl; // Move to a new line after the progress bar.
+                std::cout << "Size of possibilities: " << possibilities.size() << std::endl;
+            }
             possibility_counts.push_back(possibilities.size());
             score++;
 

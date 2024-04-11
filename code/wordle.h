@@ -35,8 +35,8 @@ struct GameResult { // ! not currently used
 
 // Solving functions
 coloring_t get_pattern(const std::string& guess, const std::string& answer);
-std::string get_next_guess(const std::vector<std::string>& guesses, const std::vector<int>& patterns, const std::vector<std::string>& possibilities);
-std::vector<std::string> get_possible_words(const std::string& guess, int pattern, const std::vector<std::string>& possibilities);
+std::string get_next_guess(const std::vector<std::string>& guesses, const std::vector<coloring_t>& patterns, const std::vector<std::string>& possibilities);
+std::vector<std::string> get_possible_words(const std::string& guess, coloring_t pattern, const std::vector<std::string>& possibilities);
 
 
 // Using std::unordered_map for the 'priors' to mimic a Python dict
