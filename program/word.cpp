@@ -14,7 +14,7 @@ coloring_t word_cmp(word_t &query, word_t &answer){
             query_matched[i] = true;
             answer_matched[i] = true;
         }
-        mult *= 3;
+        mult *= NUMCOLORS;
     }
 
     // reset multiplier
@@ -22,7 +22,7 @@ coloring_t word_cmp(word_t &query, word_t &answer){
     // Check for yellow boxes
     for(int i = 0; i < WORDLEN; i++){ // query index
         if(query_matched[i]) {
-            mult *= 3;
+            mult *= NUMCOLORS;
             continue;
         }
         for(int j = 0; j < WORDLEN; j++){// answer index
@@ -34,9 +34,19 @@ coloring_t word_cmp(word_t &query, word_t &answer){
                 break;
             }
         }
-        mult *= 3;
+        mult *= NUMCOLORS;
     }
     return out;
+}
+
+void str2word(std::string &source, word_t &dest){
+    strncpy(dest.text, source.c_str(),WORDLEN);
+}
+
+void word_print(word_t &word, char delim){
+    for(int i = 0; i < WORDLEN; i ++)
+        std::cout << word.text[i];
+    std::cout << delim;
 }
 
 void color_check(coloring_t coloring, word_t &query, word_t &answer){
