@@ -1,13 +1,15 @@
 #include "wordle.h"
 #include <iostream>
-#include <fstream>
 #include <cassert>
+
+const std::string DEFAULT_FIRST_GUESS = "salet";
 
 // Implementation of simulate_games
 void simulate_games(
     bool quiet,
     bool use_empirical_value,
-    const std::unordered_map<std::string, float>& priors
+    const std::unordered_map<std::string, float>& priors,
+    const std::string& first_guess
 ) {
     assert(!use_empirical_value && "Empirical value usage is not supported.");
 
@@ -33,44 +35,28 @@ void simulate_games(
     if (!quiet) {
         std::cout << "Loaded " << word_list.size() << " words." << std::endl;
     }
-}
 
-// Stub for load_word_list function
-std::vector<std::string> load_word_list(bool short_list) {
-    // Define the file paths
-    std::string data_dir = "./data/";
-    std::string short_word_list_file = data_dir + "possible_words.txt";
-    std::string long_word_list_file = data_dir + "allowed_words.txt";
-
-    // Choose the file based on the short_list flag
-    std::string file_path = short_list ? short_word_list_file : long_word_list_file;
-
-    std::vector<std::string> words;
-    std::string line;
-    std::ifstream file(file_path);
-
-    if (file.is_open()) {
-        while (getline(file, line)) {
-            // Remove newline characters and add to the list if line is not empty
-            if (!line.empty()) {
-                words.push_back(line);
-            }
-        }
-        file.close();
-    } else {
-        std::cerr << "Unable to open file: " << file_path << std::endl;
+    std::string guess = first_guess;
+    if (first_guess.empty()) {
+        guess = get_optimal_first_guess(word_list, effective_priors);
     }
 
-    return words;
-}
+    // Ready the evaluator
+    std::vector<std::string> test_set = word_list;
+    std::vector<int> scores(test_set.size(), 0);
+    
+    size_t total_words = test_set.size();
+    size_t progress = 0;
+    
+    for (const auto& answer : test_set) {
+        print_progress_bar(++progress, total_words);
 
-// Stub for load_uniform_priors function
-std::unordered_map<std::string, float> load_uniform_priors(const std::vector<std::string>& words) {
-    std::unordered_map<std::string, float> uniform_priors;
-    for (const auto& word : words) {
-        uniform_priors[word] = 1.0f / words.size(); // Uniform distribution
+        // ... rest of your loop logic ...
+
+        // At the end of each loop
+        std::cout << std::endl; // To move to the next line after the progress bar
     }
-    return uniform_priors;
+
 }
 
 int main() {
@@ -78,7 +64,8 @@ int main() {
     simulate_games(
         false, // quiet
         false, // use_empirical_value
-        {} // priors
+        {}, // priors
+        DEFAULT_FIRST_GUESS // first_guess
     );
     return 0;
 }

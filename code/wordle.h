@@ -7,6 +7,9 @@
 #include <map>
 #include <unordered_map>
 
+// Program args (may be tweaked)
+extern const std::string DEFAULT_FIRST_GUESS;
+
 // Constants
 const int MIN_LETTERS = 5;
 const int MAX_LETTERS = 5;
@@ -25,11 +28,18 @@ struct WordleGameResult {
 void simulate_games(
     bool quiet = false,
     bool use_empirical_value = false,
-    const std::unordered_map<std::string, float>& priors = std::unordered_map<std::string, float>()
+    const std::unordered_map<std::string, float>& priors = std::unordered_map<std::string, float>(),
+    const std::string& first_guess = DEFAULT_FIRST_GUESS
 );
 
 std::vector<std::string> load_word_list(bool short_list);
 
 std::unordered_map<std::string, float> load_uniform_priors(const std::vector<std::string>& words);
+
+std::string get_optimal_first_guess(const std::vector<std::string>& word_list, const std::unordered_map<std::string, float>& priors);
+
+// Misc bells and whistle
+void print_progress_bar(size_t progress, size_t total);
+
 
 #endif // WORDLE_H

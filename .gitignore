@@ -1,3 +1,17 @@
+# Manual
+.vscode
+
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# Unignore all dirs
+!*/
+*.o
+.vscode/
+
 # Prerequisites
 *.d
 
