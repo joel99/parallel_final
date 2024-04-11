@@ -1,11 +1,13 @@
 #ifndef WORDLE_H
 #define WORDLE_H
 
+#include <numeric>
 #include <iostream>
 #include <string>
 #include <vector>
 #include <map>
 #include <unordered_map>
+#include <cmath> // For log and isnan functions
 
 // Program args (may be tweaked)
 extern const std::string DEFAULT_FIRST_GUESS;
@@ -35,8 +37,23 @@ struct GameResult { // ! not currently used
 
 // Solving functions
 coloring_t get_pattern(const std::string& guess, const std::string& answer);
-std::string get_next_guess(const std::vector<std::string>& guesses, const std::vector<coloring_t>& patterns, const std::vector<std::string>& possibilities);
+std::string get_next_guess(
+    const std::vector<std::string>& guesses, 
+    const std::vector<coloring_t>& patterns,
+    const std::vector<std::string>& possibilities, 
+    const std::vector<std::string>& choices, 
+    const std::vector<std::float_t> &priors
+);
 std::vector<std::string> get_possible_words(const std::string& guess, coloring_t pattern, const std::vector<std::string>& possibilities);
+
+// More solver pieces
+std::string optimal_guess(
+    const std::vector<std::string> &choices,
+    const std::vector<std::string> &possibilities,
+    const std::vector<std::float_t> &priors
+);
+
+std::float_t calculate_entropy(const std::vector<std::float_t>& probabilities);
 
 
 // Using std::unordered_map for the 'priors' to mimic a Python dict

@@ -67,22 +67,22 @@ void simulate_games(
         int score = 1;
         std::string guess = first_guess;
         while (guess != answer && score <= MAX_GUESSES) {
-            coloring_t pattern = get_pattern(guess, answer);
-            guesses[score - 1] = guess;
-            patterns.push_back(pattern);
-
-            // JY: This is the REDUCTION step, and where we'd need to balance...
-            possibilities = get_possible_words(guess, pattern, possibilities);
 
             // print size of possibilities
             if (!quiet) {
                 std::cout << std::endl; // Move to a new line after the progress bar.
                 std::cout << "Size of possibilities: " << possibilities.size() << std::endl;
             }
+            coloring_t pattern = get_pattern(guess, answer);
+            guesses[score - 1] = guess;
+            patterns.push_back(pattern);
+
+            // JY: This is the REDUCTION step, and where we'd need to balance...
+            possibilities = get_possible_words(guess, pattern, possibilities);
             possibility_counts.push_back(possibilities.size());
             score++;
 
-            if (score <= MAX_GUESSES) guess = get_next_guess(guesses, patterns, possibilities);
+            if (score <= MAX_GUESSES) guess = get_next_guess(guesses, patterns, possibilities, word_list, effective_priors);
         }
 
         // TODO differentiate scoring properly based on solve or not

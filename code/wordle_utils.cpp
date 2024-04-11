@@ -59,3 +59,14 @@ void print_progress_bar(size_t progress, size_t total) {
     std::cout << "] " << int(percent * 100.0) << " %\r";
     std::cout.flush();
 }
+
+
+double calculate_entropy(const std::vector<double>& probabilities) {
+    double entropy = 0.0;
+    for (double p : probabilities) {
+        if (p > 0) {  // Only add to the entropy if p is non-zero
+            entropy += p * log(p);
+        }
+    }
+    return -entropy;  // The entropy formula has a negative sign
+}
