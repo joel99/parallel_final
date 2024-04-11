@@ -16,12 +16,28 @@ const int MAX_LETTERS = 5;
 const int ALPHABET_CHARACTERS = 26;
 const int COLORS = 3;
 
-#include <unordered_map>
+const int MAX_GUESSES = 6;
 
-// Assuming WordleGameResult is a struct you'll define based on your needs
-struct WordleGameResult {
-    // Members to hold results of the simulation
+typedef struct word{
+    char text[8];
+} word_t;
+
+typedef int coloring_t; // code for possible total colorings, >= 3^MAX_LETTERS
+
+
+struct GameResult { // ! not currently used
+    int score;
+    std::string answer;
+    std::vector<std::string> guesses;
+    std::vector<int> patterns;
+    std::vector<int> possibilityCounts;
 };
+
+// Solving functions
+coloring_t get_pattern(const std::string& guess, const std::string& answer);
+std::string get_next_guess(const std::vector<std::string>& guesses, const std::vector<int>& patterns, const std::vector<std::string>& possibilities);
+std::vector<std::string> get_possible_words(const std::string& guess, int pattern, const std::vector<std::string>& possibilities);
+
 
 // Using std::unordered_map for the 'priors' to mimic a Python dict
 // The key is a std::string (short strings), and the value is a float

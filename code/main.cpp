@@ -51,7 +51,38 @@ void simulate_games(
     for (const auto& answer : test_set) {
         print_progress_bar(++progress, total_words);
 
-        // ... rest of your loop logic ...
+        // * currently the shared state of the board is tracked in guesses/patterns
+        std::vector<std::string> guesses(MAX_GUESSES);
+        std::vector<coloring_t> patterns;
+        std::vector<int> possibility_counts;
+        std::vector<std::string> possibilities; // Filtered based on priors > 0 and not seen, if required.
+
+        // Initialize possibilities...
+        for (const auto& word : word_list) {
+            if (effective_priors[word] > 0) {
+                possibilities.push_back(word);
+            }
+        }
+
+        int score = 1;
+        std::string guess = first_guess;
+        while (guess != answer && score <= MAX_GUESSES) {
+            coloring_t pattern = get_pattern(guess, answer);
+            guesses[score - 1] = guess;
+            patterns.push_back(pattern);
+
+            // JY: This is the REDUCTION step, and where we'd need to balance...
+            possibilities = get_possible_words(guess, pattern, possibilities);
+            possibility_counts.push_back(possibilities.size());
+            score++;
+
+            if (score <= MAX_GUESSES) guess = get_next_guess(guesses, patterns, possibilities);
+        }
+
+        // TODO differentiate scoring properly based on solve or not
+
+        // Accumulate stats and build results...
+        scores.push_back(score);
 
         // At the end of each loop
         std::cout << std::endl; // To move to the next line after the progress bar
