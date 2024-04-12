@@ -11,7 +11,7 @@
 
 #define WORDLEN 8 // Maximum word length
 #define NUMCOLORS 3 // Number of Board Colors
-#define COLOR_DEFAULT 0
+#define PTN_DEFAULT 0
 #define CORRECT_GUESS 6560
 
 /** Data Structure for a word */
@@ -47,8 +47,7 @@ bool word_eq(word_t &A, word_t &B);
 */
 void word_deepcopy(word_t &source, word_t &dest);
 
-
-void word_print(word_t &word, coloring_t coloring = COLOR_DEFAULT,
+void word_print(word_t &word, coloring_t coloring = PTN_DEFAULT,
     char delim = '\n');
 
 /**
