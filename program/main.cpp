@@ -164,20 +164,47 @@ int main(int argc, char **argv) {
     while(1){
         std::getline(std::cin, buffer);
         if(buffer.empty()) continue;
+        if (buffer == "benchmark") {
+            break;
+        }
         str2word(buffer, answer);
         if(!is_in_wordlist(words, answer)){
             std::cout << "The word you entered is not valid!\n";
         }
         else break;
     }
+    // IO Complete
+    
 
-    // Initialization Complete
+    // Time initialization
+    auto precompute_start = std::chrono::high_resolution_clock::now();
     
     // Precompute the coloring matrix
     compute_patterns(pattern_matrix, words);
 
-    // Enter the main solver loop
-    solver_main(data, answer, words, priors, pattern_matrix);
-    
+    auto precompute_end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(precompute_end - precompute_start);
+
+    std::cout << "Initialization: " << duration.count() << " milliseconds\n";
+
+    if (buffer == "benchmark") {
+        // Enter benchmark loop
+        float time_total = 0.0f;
+        for (auto &answer : words) {
+            std::cout << "Benchmarking word: ";
+            word_print(answer, 0);
+
+            auto answer_start = std::chrono::high_resolution_clock::now();
+            solver_main(data, answer, words, priors, pattern_matrix);
+            auto answer_end = std::chrono::high_resolution_clock::now();
+            auto answer_duration = std::chrono::duration_cast<std::chrono::milliseconds>(answer_end - answer_start);
+            time_total += answer_duration.count();
+        }
+        std::cout << "Time taken: " << time_total.count() << " milliseconds\n";
+    } else {
+        // Interactive, 1-round solver
+        solver_main(data, answer, words, priors, pattern_matrix);
+    }
+
     return 0;
 }

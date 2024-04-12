@@ -2,7 +2,6 @@
 *
 !Makefile
 
-
 # Unignore all with extensions
 !*.*
 
