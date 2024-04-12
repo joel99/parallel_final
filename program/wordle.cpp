@@ -53,7 +53,6 @@ wordlist_t read_words(std::string input_filename) {
     return words;
 }
 
-
 priors_t generate_uniform_priors(unsigned long size){
     priors_t out(size, 1.0f / size);
     return out;
@@ -152,6 +151,5 @@ int main(int argc, char **argv) {
         std::cout << i << "\n";
     }
 
-    
     return 0;
 }

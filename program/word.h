@@ -35,7 +35,7 @@ coloring_t word_cmp(word_t &query, word_t &answer);
 void str2word(std::string &source, word_t &dest);
 
 /**
- * Debugging Function: Visualize the coloring. ("-": grey, "y": yellow, "g": green)
+ * Debugging Function: ("-": grey, "y": yellow, "g": green)
 */
 void color_check(coloring_t coloring, word_t &query, word_t &answer);
 
