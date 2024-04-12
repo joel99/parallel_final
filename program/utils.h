@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdlib.h>
+#include <cstring>
 #include "word.h"
 
 // Word List

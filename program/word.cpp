@@ -6,6 +6,14 @@
 #define GREEN   "\033[32m"      
 #define YELLOW  "\033[33m"
 
+unsigned long get_num_patterns(){
+    unsigned long out = 1;
+    for(int i = 0; i < WORDLEN; i++)
+        out *= NUMCOLORS;
+    return out;
+}
+
+
 coloring_t word_cmp(word_t &query, word_t &answer){
     // Indicator array, prevent matching the same letter twice. Init'd to false
     bool query_matched[WORDLEN] = { 0 };

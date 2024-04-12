@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <cstring>
+#include <cmath>
 
 #define WORDLEN 8 // Maximum word length
 #define NUMCOLORS 3 // Number of Board Colors
@@ -19,7 +20,12 @@ typedef struct word{
     char text[8];
 } word_t;
 
-typedef int coloring_t;
+typedef unsigned short coloring_t;
+
+/**
+ * Obtain the number of coloring patterns.
+*/
+unsigned long get_num_patterns();
 
 /**
  * Word comparison function based on the wordle rules.
