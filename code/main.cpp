@@ -97,31 +97,33 @@ void simulate_games(
         
         while (guess != answer && score <= MAX_GUESSES) {
 
-            // print size of possibilities
-            if (!quiet) {
-                std::cout << std::endl; // Move to a new line after the progress bar.
-                std::cout << "Size of possibilities: " << possibilities.size() << std::endl;
-            }
             coloring_t pattern = get_pattern(guess, answer);
             guesses[score - 1] = guess;
             patterns.push_back(pattern);
-
-            // TODO: JY -> SH: there's a dramatic reduction in number of possibilities, suspiciously high. Can you check if the reduction is happening correctly?
-
-            // JY: This is the REDUCTION step, and where we'd need to balance...
             int guess_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), guess));
-            // print guess and index
+
+            // print size of possibilities
             if (!quiet) {
-                // OK, salet is not in here... where ... why?
+                std::cout << std::endl; // Move to a new line after the progress bar.
                 std::cout << "Turn: " << score << " Guess: " << guess << " at index: " << guess_idx << std::endl;
-                // Check size of possibilites and identified coloring_matrix
                 std::cout << "Size of possibilities: " << possibilities.size() << std::endl;
+                // OK, salet is not in here... where ... why?
+                // Check size of possibilites and identified coloring_matrix
                 std::cout << "Size of row 0 of coloring_matrix: " << working_coloring_matrix[0].size() << std::endl;
                 std::cout << "Size of coloring_matrix: " << working_coloring_matrix.size() << std::endl;
             }
 
             // TODO use valid mask here
             std::vector<bool> mask = get_possible_words_matrix(guess_idx, pattern, working_coloring_matrix);
+            // print mask, guess, pattern
+            if (!quiet) {
+                std::cout << "Mask: ";
+                for (int i = 0; i < mask.size(); i++) {
+                    std::cout << mask[i] << " ";
+                }
+                std::cout << std::endl;
+            }
+
             // print sum anyway
             if (!quiet) {
                 int mask_sum = std::accumulate(mask.begin(), mask.end(), 0);
@@ -131,8 +133,6 @@ void simulate_games(
                 // just keep the mask and call mask-based functions
                 possibility_counts.push_back(std::accumulate(mask.begin(), mask.end(), 0));
             } else {
-                // reduction
-
                 // First check what index the answer is initially
                 int answer_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), answer));
                 // print answer index
@@ -167,7 +167,7 @@ void simulate_games(
                 }
 
                 // print possibilities if length < 10
-                if (!quiet && possibilities.size() < 10) {
+                if (!quiet && possibilities.size() < 200) {
                     std::cout << "Possibilities: ";
                     for (int i = 0; i < possibilities.size(); i++) {
                         std::cout << possibilities[i] << " ";

@@ -99,8 +99,6 @@ std::vector<std::float_t> get_entropies(
     {
         return std::vector<std::float_t>(coloring_matrix.size(), 0.0);
     }
-    // print that we've reached here
-    std::cout << "Weights are nonzero." << std::endl;
     // Verify shapes
     assert(coloring_matrix[0].size() == weights.size() && "Coloring matrix must match weights.");
     assert(coloring_matrix[0].size() == possibilities.size() && "Coloring matrix must match possibilities.");
@@ -116,14 +114,7 @@ std::vector<std::float_t> get_entropies(
             probs[guess][idx] += weights[candidate];
         }
     }
-    // pass loop
-    // std::cout << "Probabilities calculated." << std::endl;
-    // check sums close to 1
-    // for (int i = 0; i < probs.size(); i++)
-    // {
-    //     std::cout << "Sum of probs[" << i << "]: " << std::accumulate(probs[i].begin(), probs[i].end(), 0.0f) << std::endl;
-    // }
-
+    
     // prob to entropy
     std::vector<std::float_t> entropies;
     for (int i = 0; i < probs.size(); i++)
