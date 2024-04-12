@@ -36,6 +36,6 @@ int main(int argc, char **argv){
     }
 
     coloring_t result = word_cmp(query, answer);
-    color_check(result, query, answer);
+    // color_check(result, query, answer);
     return 0;
 }

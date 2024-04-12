@@ -1,5 +1,11 @@
 #include "word.h"
 
+// Printing Color Codes: https://stackoverflow.com/questions/9158150/colored-output-in-c/9158263
+#define RESET   "\033[0m"
+#define BLACK   "\033[30m" 
+#define GREEN   "\033[32m"      
+#define YELLOW  "\033[33m"
+
 coloring_t word_cmp(word_t &query, word_t &answer){
     // Indicator array, prevent matching the same letter twice. Init'd to false
     bool query_matched[WORDLEN] = { 0 };
@@ -43,29 +49,23 @@ void str2word(std::string &source, word_t &dest){
     strncpy(dest.text, source.c_str(),WORDLEN);
 }
 
-void word_print(word_t &word, char delim){
-    for(int i = 0; i < WORDLEN; i ++)
-        std::cout << word.text[i];
-    std::cout << delim;
+void word_deepcopy(word_t &source, word_t &dest){
+    strncpy(dest.text, source.text, WORDLEN);
 }
 
-void color_check(coloring_t coloring, word_t &query, word_t &answer){
-    for(int i = 0; i < WORDLEN; i ++)
-        std::cout << query.text[i];
-    std::cout << "\n";
+bool word_eq(word_t &A, word_t &B){
+    return(strncmp(A.text, B.text, WORDLEN) == 0);
+}
 
+void word_print(word_t &word, coloring_t coloring, char delim){
     for(int i = 0; i < WORDLEN; i ++){
         if(coloring % 3 == 2)
-            std::cout << "g";
+            std::cout << GREEN << word.text[i] << RESET;
         else if (coloring % 3 == 1)
-            std::cout << "y";
+            std::cout << YELLOW << word.text[i] << RESET;
         else
-            std::cout << "-";
-        coloring = coloring / 3;
+            std::cout << BLACK << word.text[i] << RESET;
+        coloring = coloring / NUMCOLORS;
     }
-
-    std::cout << "\n";
-    for(int i = 0; i < WORDLEN; i ++)
-        std::cout << answer.text[i];
-    std::cout << "\n";
+    std::cout << delim;
 }

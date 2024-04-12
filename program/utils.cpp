@@ -1,21 +1,10 @@
-#include "word.h"
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <cassert>
-#include <cstring>
-#include <unistd.h>
+#include "utils.h"
 
-// Data Strucutre Abstractions
-typedef std::vector<float> priors_t;
+/*******************************
+ * File I/O Functions
+********************************/
 
-void usage(char *exec_name){
-    std::cout << "Usage:\n" << exec_name << "-f <word list> -n <thread count> [-p <prior probabilities>] \n";
-    return;
-}
-
-wordlist_t read_words(std::string input_filename) {
-
+wordlist_t read_words_from_file(std::string input_filename){
     std::ifstream file(input_filename);
     if(!file.is_open()){
         std::cerr << "Unable to open file: " << input_filename << " .\n";
@@ -40,25 +29,22 @@ wordlist_t read_words(std::string input_filename) {
              << " [Err: Word Count]\n";
         exit(1);
     }
-    wordlist_t words(word_count);
+
+    wordlist_t out(word_count);
     while (getline(file, line)) {
         if(word_index >= word_count) break; // Avoid buffer overflow.
         // Remove newline characters and add to the list if line is not empty
         if (!line.empty()) {
-            str2word(line, words[word_index]);
+            str2word(line, out[word_index]);
             word_index ++;
         }
     }
     file.close();
-    return words;
-}
-
-priors_t generate_uniform_priors(unsigned long size){
-    priors_t out(size, 1.0f / size);
     return out;
 }
 
-priors_t read_priors(std::string input_filename){
+
+priors_t read_priors_from_file(std::string input_filename){
     std::ifstream file(input_filename);
     if(!file.is_open()){
         std::cerr << "Unable to open file: " << input_filename << " .\n";
@@ -103,53 +89,34 @@ priors_t read_priors(std::string input_filename){
     return out;
 }
 
-int main(int argc, char **argv) {
-    std::string text_filename;
-    std::string prior_filename;
-    int num_threads = 0;
-    int opt;
-    // Read program parameters
-    while ((opt = getopt(argc, argv, "f:n:p:")) != -1) {
-        switch (opt) {
-        case 'f':
-            text_filename = optarg;
-            break;
-        case 'p':
-            prior_filename = optarg;
-            break;
-        case 'n':
-            num_threads = atoi(optarg);
-            break;
-        default:
-            usage(argv[0]);
-            exit(1);
-        }
-    }
-    if(empty(text_filename) || num_threads <= 0){
-        usage(argv[0]);
-        exit(1);
-    }
-    // Loading the list of words
-    wordlist_t words = read_words(text_filename);
-    // Loading the list of priors
-    priors_t priors;
-    if(empty(prior_filename))
-        priors = generate_uniform_priors(words.size());
-    else{
-        priors = read_priors(prior_filename);
-    }
-    // Check if size match:
-    if(priors.size() != words.size()){
-        std::cerr << "Prior file length differs from word file length.\n";
-        exit(1);
-    }
+priors_t generate_uniform_priors(unsigned long size){
+    priors_t out(size, 1.0f);
+    return out;
+}
 
-    for (word_t &word : words){
-        word_print(word);
-    }
-    for (auto &i:priors){
-        std::cout << i << "\n";
-    }
+/*******************************
+ * Game data Functions
+********************************/
 
-    return 0;
+
+void advance_round(game_data_t &data, word_t &guess, coloring_t pattern,
+    unsigned int words_remaining){
+    struct data_entry new_entry;
+    word_deepcopy(guess, new_entry.guess);
+    new_entry.remaining = words_remaining;
+    new_entry.pattern = pattern;
+    data.push_back(new_entry);
+}
+
+unsigned long report_game_iterations(game_data_t &data){
+    return data.size();
+}
+
+
+// Debugging Functions
+bool is_in_wordlist(wordlist_t &list, word_t& word){
+    for (word_t &w : list){
+        if(word_eq(w, word)) return true;
+    }
+    return false;
 }

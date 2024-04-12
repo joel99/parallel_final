@@ -7,18 +7,18 @@
 #define WORD_H
 
 #include <iostream>
-#include <vector>
 #include <cstring>
 
 #define WORDLEN 8 // Maximum word length
 #define NUMCOLORS 3 // Number of Board Colors
+#define COLOR_DEFAULT 0
+#define CORRECT_GUESS 6560
 
 /** Data Structure for a word */
 typedef struct word{
     char text[8];
 } word_t;
 
-typedef std::vector<word_t> wordlist_t;
 typedef int coloring_t;
 
 /**
@@ -30,19 +30,26 @@ typedef int coloring_t;
 coloring_t word_cmp(word_t &query, word_t &answer);
 
 /**
- * Conversion function from string type to word type
+ * Convert a cpp string type to the word type
+ * @param source The input cpp string
+ * @param dest the word_t data type to be written to
+ * This function will always truncate the source string to WORDLEN size.
 */
 void str2word(std::string &source, word_t &dest);
 
 /**
- * Debugging Function: ("-": grey, "y": yellow, "g": green)
+ * Compare if two words are equal.
 */
-void color_check(coloring_t coloring, word_t &query, word_t &answer);
+bool word_eq(word_t &A, word_t &B);
 
 /**
- * Debugging Function
+ * Deep Copy for the word data type
 */
-void word_print(word_t &word, char delim = '\n');
+void word_deepcopy(word_t &source, word_t &dest);
+
+
+void word_print(word_t &word, coloring_t coloring = COLOR_DEFAULT,
+    char delim = '\n');
 
 /**
  * Coloring is coded by a base-3 representation of an integer. 
