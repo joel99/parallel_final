@@ -2,6 +2,7 @@
 
 #include "wordle.h"
 #include <numeric>
+#include <cassert>
 
 coloring_t get_pattern(const std::string &guess, const std::string &answer)
 {
@@ -117,7 +118,8 @@ std::vector<std::float_t> get_entropies(
 std::string optimal_guess(
     const std::vector<std::string> &choices, // legal choices
     const std::vector<std::string> &possibilities,
-    const std::vector<std::float_t> &priors // TODO add the mask that reduces this
+    const std::vector<std::float_t> &priors, // TODO add the mask that reduces this
+    const std::vector<std::vector<coloring_t>> &coloring_matrix // shape Guess x possibilities
 )
 {
     /*
@@ -126,16 +128,19 @@ std::string optimal_guess(
         ? Ummm need to pass the choices
         ! Currently this is just info max. Other strategies not implemented.
     */
-    if (true || possibilities.size() == 1) // TODO enable once ready to implement
+    // Don't enable until we figure out why reduction is so dramatic
+    if (possibilities.size() == 1) // TODO enable once ready to implement
+    // if (true || possibilities.size() == 1) // TODO enable once ready to implement
     {
         return possibilities[0];
     }
-    std::vector<std::float_t> weights = get_weights(possibilities, priors); // this appears to be a normalizing step on priors. Not sure why we need it
+    assert(possibilities.size() == priors.size() && "Priors must match possibilities");
+    assert(possibilities.size() == coloring_matrix[0].size() && "Coloring matrix must match possibilities");
+    std::vector<std::float_t> weights = get_weights(possibilities, priors); // this appears to be a normalizing step on priors.
     // hm... does this need to happen before or after?
-    std::vector<std::vector<coloring_t>> coloring_matrix;
     std::vector<std::float_t> ents = get_entropies(possibilities, weights, coloring_matrix); // scatter reduce
     // ents needs to be a vector of ints
-    return choices[std::distance(ents.begin(), std::max_element(ents.begin(), ents.end()))]; // argmax
+    return choices[std::distance(ents.begin(), std::max_element(ents.begin(), ents.end()))]; // argmax - this likely can be parallel.
 }
 
 std::string get_next_guess(
@@ -143,7 +148,9 @@ std::string get_next_guess(
     const std::vector<int> &patterns,
     const std::vector<std::string> &possibilities,
     const std::vector<std::string> &choices,
-    const std::vector<std::float_t> &priors)
+    const std::vector<std::float_t> &priors,
+    const std::vector<std::vector<coloring_t>> &coloring_matrix
+)
 {
     /*
         possibilities: words with nonzero prob of being answer (based on feedback)
@@ -160,12 +167,11 @@ std::string get_next_guess(
 
     // TODO choices = get_possible_words(guess, pattern, choices)
     // Looks like 3B1B reduces choices in hard mode. For now we don't reduce at all, JY hasn't interpreted what this is for yet.
-    return optimal_guess(choices, possibilities, priors);
+    return optimal_guess(choices, possibilities, priors, coloring_matrix);
 }
 
 std::vector<std::string> get_possible_words(const std::string &guess, coloring_t pattern, const std::vector<std::string> &possibilities)
 {
-    // TODO replace with coloring matrix subset op, coloring.where(coloring[guess] == pattern)
     // Basic serial implementation
     std::vector<std::string> filteredWords;
     for (const auto &word : possibilities)
@@ -176,4 +182,16 @@ std::vector<std::string> get_possible_words(const std::string &guess, coloring_t
         }
     }
     return filteredWords;
+}
+
+std::vector<bool> get_possible_words_matrix(const int guess_idx, coloring_t pattern, const std::vector<std::vector<coloring_t>> &coloring_matrix)
+{
+    // Index the matrix, simply.
+    auto row = coloring_matrix[guess_idx]; // ? Is this a copy or a reference?
+    std::vector<bool> mask(row.size(), false);
+    for (int i = 0; i < row.size(); i++)
+    {
+        mask[i] = (row[i] == pattern);
+    }
+    return mask;
 }

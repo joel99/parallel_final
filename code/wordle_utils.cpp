@@ -30,17 +30,12 @@ std::vector<std::string> load_word_list(bool short_list) {
     return words;
 }
 
-// Stub for load_uniform_priors function
-std::unordered_map<std::string, float> load_uniform_priors(const std::vector<std::string>& words) {
-    std::unordered_map<std::string, float> uniform_priors;
-    for (const auto& word : words) {
-        uniform_priors[word] = 1.0f / words.size(); // Uniform distribution
-    }
+std::vector<float> load_uniform_priors(const std::vector<std::string>& words) {
+    std::vector<float> uniform_priors(words.size(), 1.0 / words.size());
     return uniform_priors;
 }
 
-
-std::string get_optimal_first_guess(const std::vector<std::string>& word_list, const std::unordered_map<std::string, float>& priors) {
+std::string get_optimal_first_guess(const std::vector<std::string>& word_list, const std::vector<float>& priors) {
     // Placeholder logic for finding the optimal first guess
     // For now, simply return the default first guess
     return DEFAULT_FIRST_GUESS;
@@ -61,9 +56,9 @@ void print_progress_bar(size_t progress, size_t total) {
 }
 
 
-double calculate_entropy(const std::vector<double>& probabilities) {
-    double entropy = 0.0;
-    for (double p : probabilities) {
+float calculate_entropy(const std::vector<float>& probabilities) {
+    float entropy = 0.0;
+    for (float p : probabilities) {
         if (p > 0) {  // Only add to the entropy if p is non-zero
             entropy += p * log(p);
         }

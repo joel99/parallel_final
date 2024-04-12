@@ -15,18 +15,12 @@ void simulate_games(
 
     auto word_list = load_word_list(true); // Example call, adjust `true` based on your needs
 
-    std::unordered_map<std::string, float> effective_priors;
+    std::vector<float> effective_priors; // todo convert to vector of flaots
     if (priors.empty()) {
         effective_priors = load_uniform_priors(word_list);
     } else {
         // Verify all words in word_list are in priors
-        for (const auto& word : word_list) {
-            if (priors.find(word) == priors.end()) {
-                std::cerr << "Error: Word '" << word << "' not found in priors." << std::endl;
-                return; // Or handle the error as appropriate
-            }
-        }
-        effective_priors = priors;
+        assert(priors.size() == word_list.size() && "Priors size mismatch.");
     }
 
     // Check length priors loaded effectively
@@ -47,6 +41,14 @@ void simulate_games(
     
     size_t total_words = test_set.size();
     size_t progress = 0;
+
+    std::vector<std::vector<coloring_t>> coloring_matrix; // ! Not currently used
+    for (int i = 0; i < word_list.size(); i++) {
+        std::vector<coloring_t> row = std::vector<coloring_t>(word_list.size());
+        for (int j = 0; j < word_list.size(); j++) {
+            row[j] = get_pattern(word_list[i], word_list[j]);
+        }
+    }
     
     for (const auto& answer : test_set) {
         print_progress_bar(++progress, total_words);
@@ -56,16 +58,30 @@ void simulate_games(
         std::vector<coloring_t> patterns;
         std::vector<int> possibility_counts;
         std::vector<std::string> possibilities; // Filtered based on priors > 0 and not seen, if required.
+        std::vector<float> working_priors;
 
-        // Initialize possibilities...
-        for (const auto& word : word_list) {
-            if (effective_priors[word] > 0) {
-                possibilities.push_back(word);
+        // V1: TO CONSIDER Instead of reducing the active set of words, we simply maintain a mask
+        if (POSSIBILITY_MASK) {
+            std::vector<bool> valid_mask(word_list.size(), true); // Mask to track valid words (not seen yet
+            for (int i = 0; i < word_list.size(); i++) {
+                if (effective_priors[i] == 0) {
+                    valid_mask[i] = false;
+                }
+                possibilities.push_back(word_list[i]);
+                working_priors.push_back(effective_priors[i]);
+            }
+        } else {
+            for (int i = 0; i < word_list.size(); i++) {
+                if (effective_priors[i] > 0) {
+                    possibilities.push_back(word_list[i]);
+                    working_priors.push_back(effective_priors[i]);
+                }
             }
         }
 
         int score = 1;
         std::string guess = first_guess;
+        
         while (guess != answer && score <= MAX_GUESSES) {
 
             // print size of possibilities
@@ -77,12 +93,30 @@ void simulate_games(
             guesses[score - 1] = guess;
             patterns.push_back(pattern);
 
+            // TODO: JY -> SH: there's a dramatic reduction in number of possibilities, suspiciously high. Can you check if the reduction is happening correctly?
+
             // JY: This is the REDUCTION step, and where we'd need to balance...
-            possibilities = get_possible_words(guess, pattern, possibilities);
-            possibility_counts.push_back(possibilities.size());
+            if (POSSIBILITY_MASK) {
+                int guess_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), guess));
+                std::vector<bool> mask = get_possible_words_matrix(guess_idx, pattern, coloring_matrix);
+                int count = 0;
+                
+            } else {
+                possibilities = get_possible_words(guess, pattern, possibilities); // Not supported because it doesn't reduce prior/coloring in tandem
+                // TODO not implemented further than this
+                possibility_counts.push_back(possibilities.size());
+            }
+
             score++;
 
-            if (score <= MAX_GUESSES) guess = get_next_guess(guesses, patterns, possibilities, word_list, effective_priors);
+            if (score <= MAX_GUESSES) guess = get_next_guess(
+                guesses, 
+                patterns, 
+                possibilities, 
+                word_list, 
+                working_priors,
+                coloring_matrix
+            );
         }
 
         // TODO differentiate scoring properly based on solve or not

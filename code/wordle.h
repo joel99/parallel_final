@@ -9,8 +9,9 @@
 #include <unordered_map>
 #include <cmath> // For log and isnan functions
 
-// Program args (may be tweaked)
+// Program args / flags (may be tweaked for profiling)
 extern const std::string DEFAULT_FIRST_GUESS;
+const bool POSSIBILITY_MASK = false; // true not implemented fully
 
 // Constants
 const int MIN_LETTERS = 5;
@@ -42,15 +43,19 @@ std::string get_next_guess(
     const std::vector<coloring_t>& patterns,
     const std::vector<std::string>& possibilities, 
     const std::vector<std::string>& choices, 
-    const std::vector<std::float_t> &priors
+    const std::vector<std::float_t> &priors,
+    const std::vector<std::vector<coloring_t>> &coloring_matrix
 );
+
 std::vector<std::string> get_possible_words(const std::string& guess, coloring_t pattern, const std::vector<std::string>& possibilities);
+std::vector<bool> get_possible_words_matrix(const int guess, coloring_t pattern, const std::vector<std::vector<coloring_t>>& coloring_matrix);
 
 // More solver pieces
 std::string optimal_guess(
     const std::vector<std::string> &choices,
     const std::vector<std::string> &possibilities,
-    const std::vector<std::float_t> &priors
+    const std::vector<std::float_t> &priors,
+    const std::vector<std::vector<coloring_t>> &coloring_matrix
 );
 
 std::float_t calculate_entropy(const std::vector<std::float_t>& probabilities);
@@ -67,9 +72,9 @@ void simulate_games(
 
 std::vector<std::string> load_word_list(bool short_list);
 
-std::unordered_map<std::string, float> load_uniform_priors(const std::vector<std::string>& words);
+std::vector<float> load_uniform_priors(const std::vector<std::string>& words);
 
-std::string get_optimal_first_guess(const std::vector<std::string>& word_list, const std::unordered_map<std::string, float>& priors);
+std::string get_optimal_first_guess(const std::vector<std::string>& word_list, const std::vector<float>& priors);
 
 // Misc bells and whistle
 void print_progress_bar(size_t progress, size_t total);
