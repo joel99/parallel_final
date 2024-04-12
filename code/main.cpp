@@ -2,7 +2,10 @@
 #include <iostream>
 #include <cassert>
 
-const std::string DEFAULT_FIRST_GUESS = "salet";
+const std::string DEFAULT_FIRST_GUESS = "steam"; // more common, salet is not in common list and is slower to iterate atm
+const bool SMOKETEST = true; // quick debuggin
+// const bool SMOKETEST = false; // quick debuggin
+// const std::string DEFAULT_FIRST_GUESS = "salet";
 
 // Implementation of simulate_games
 void simulate_games(
@@ -13,7 +16,7 @@ void simulate_games(
 ) {
     assert(!use_empirical_value && "Empirical value usage is not supported.");
 
-    auto word_list = load_word_list(true); // Example call, adjust `true` based on your needs
+    auto word_list = load_word_list(SMOKETEST); // FAST MODE
 
     std::vector<float> effective_priors; // todo convert to vector of flaots
     if (priors.empty()) {
@@ -42,7 +45,7 @@ void simulate_games(
     size_t total_words = test_set.size();
     size_t progress = 0;
 
-    std::vector<std::vector<coloring_t>> coloring_matrix; // ! Not currently used
+    std::vector<std::vector<coloring_t>> coloring_matrix; // Shape Guess x Possibility
     for (int i = 0; i < word_list.size(); i++) {
         std::vector<coloring_t> row = std::vector<coloring_t>(word_list.size());
         for (int j = 0; j < word_list.size(); j++) {
@@ -96,14 +99,40 @@ void simulate_games(
             // TODO: JY -> SH: there's a dramatic reduction in number of possibilities, suspiciously high. Can you check if the reduction is happening correctly?
 
             // JY: This is the REDUCTION step, and where we'd need to balance...
+            int guess_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), guess));
+            // print guess and index
+            if (!quiet) {
+                // OK, salet is not in here... where ... why?
+                std::cout << "Guess: " << guess << " at index: " << guess_idx << std::endl;
+            }
+
+            // TODO use valid mask here
+            std::vector<bool> mask = get_possible_words_matrix(guess_idx, pattern, coloring_matrix);
+            // print sum anyway
+            if (!quiet) {
+                std::cout << "Sum of mask: " << std::accumulate(mask.begin(), mask.end(), 0) << std::endl;
+            }
             if (POSSIBILITY_MASK) {
-                int guess_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), guess));
-                std::vector<bool> mask = get_possible_words_matrix(guess_idx, pattern, coloring_matrix);
-                int count = 0;
-                
+                // just keep the mask and call mask-based functions
+                possibility_counts.push_back(std::accumulate(mask.begin(), mask.end(), 0));
             } else {
-                possibilities = get_possible_words(guess, pattern, possibilities); // Not supported because it doesn't reduce prior/coloring in tandem
-                // TODO not implemented further than this
+                // reduction
+                std::vector<std::string> new_possibilities;
+                std::vector<float> new_priors;
+                std::vector<std::vector<coloring_t>> new_coloring_matrix;
+                // Init
+                for (int guess = 0; guess < coloring_matrix.size(); guess++) {
+                    new_coloring_matrix.push_back(std::vector<coloring_t>());
+                }
+                for (int i = 0; i < mask.size(); i++) {
+                    if (mask[i]) {
+                        new_possibilities.push_back(possibilities[i]);
+                        new_priors.push_back(working_priors[i]);
+                        for (int j = 0; j < coloring_matrix.size(); j++) {
+                            new_coloring_matrix[j].push_back(coloring_matrix[j][i]);
+                        }
+                    }
+                }
                 possibility_counts.push_back(possibilities.size());
             }
 

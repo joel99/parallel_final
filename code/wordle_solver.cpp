@@ -136,6 +136,9 @@ std::string optimal_guess(
     }
     assert(possibilities.size() == priors.size() && "Priors must match possibilities");
     assert(possibilities.size() == coloring_matrix[0].size() && "Coloring matrix must match possibilities");
+    // print that we have passed
+    std::cout << "Checks passed: Priors match possibilities and Coloring matrix matches possibilities." << std::endl;
+
     std::vector<std::float_t> weights = get_weights(possibilities, priors); // this appears to be a normalizing step on priors.
     // hm... does this need to happen before or after?
     std::vector<std::float_t> ents = get_entropies(possibilities, weights, coloring_matrix); // scatter reduce
@@ -186,6 +189,7 @@ std::vector<std::string> get_possible_words(const std::string &guess, coloring_t
 
 std::vector<bool> get_possible_words_matrix(const int guess_idx, coloring_t pattern, const std::vector<std::vector<coloring_t>> &coloring_matrix)
 {
+    // return vector of length possibilities (coloring_matrix.size(1))
     // Index the matrix, simply.
     auto row = coloring_matrix[guess_idx]; // ? Is this a copy or a reference?
     std::vector<bool> mask(row.size(), false);
