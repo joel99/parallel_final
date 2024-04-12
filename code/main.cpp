@@ -55,6 +55,9 @@ void simulate_games(
     }
     
     for (const auto& answer : test_set) {
+        if (answer != "annex") { // DEBUG: Skip to speed up
+            continue;
+        }
         print_progress_bar(++progress, total_words);
         // print true word
         if (!quiet) {
@@ -96,11 +99,26 @@ void simulate_games(
         std::string guess = first_guess;
         
         while (guess != answer && score <= MAX_GUESSES) {
+            
+            // DEBUG: print the expected pattern between 'cairn' and 'aback'
+            // if (guess == "cairn" && answer == "aback") {
+            //     std::cout << "Pattern between 'cairn' and 'aback': " << get_pattern(guess, answer) << std::endl;
+            //     // Check what's in the coloring matrix for cairn and aback, respectively
+            //     // cairn idx is index in word_list
+            //     int cairn_guess_idx = std::distance(word_list.begin(), std::find(word_list.begin(), word_list.end(), guess));
+            //     int aback_original_idx = std::distance(word_list.begin(), std::find(word_list.begin(), word_list.end(), answer));
+            //     int aback_answer_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), answer));
+            //     std::cout << "Coloring matrix for cairn and aback: " << coloring_matrix[cairn_guess_idx][aback_original_idx] << std::endl;
+            //     // Check in working index
+            //     std::cout << "Coloring matrix for cairn and aback in working index: " << working_coloring_matrix[cairn_guess_idx][aback_answer_idx] << std::endl;
+            // }
 
             coloring_t pattern = get_pattern(guess, answer);
             guesses[score - 1] = guess;
             patterns.push_back(pattern);
-            int guess_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), guess));
+            // guess idx should index source word list / legal word list, not possibilities for answers
+            // prevention of repeat guesses should be implemented here
+            int guess_idx = std::distance(word_list.begin(), std::find(word_list.begin(), word_list.end(), guess));
 
             // print size of possibilities
             if (!quiet) {
@@ -116,29 +134,29 @@ void simulate_games(
             // TODO use valid mask here
             std::vector<bool> mask = get_possible_words_matrix(guess_idx, pattern, working_coloring_matrix);
             // print mask, guess, pattern
-            if (!quiet) {
-                std::cout << "Mask: ";
-                for (int i = 0; i < mask.size(); i++) {
-                    std::cout << mask[i] << " ";
-                }
-                std::cout << std::endl;
-            }
+            // if (!quiet) {
+            //     std::cout << "Mask: ";
+            //     for (int i = 0; i < mask.size(); i++) {
+            //         std::cout << mask[i] << " ";
+            //     }
+            //     std::cout << std::endl;
+            // }
 
             // print sum anyway
-            if (!quiet) {
-                int mask_sum = std::accumulate(mask.begin(), mask.end(), 0);
-                std::cout << "Sum of mask: " << mask_sum << std::endl;
-            }
+            // if (!quiet) {
+            //     int mask_sum = std::accumulate(mask.begin(), mask.end(), 0);
+            //     std::cout << "Sum of mask: " << mask_sum << std::endl;
+            // }
             if (POSSIBILITY_MASK) {
                 // just keep the mask and call mask-based functions
                 possibility_counts.push_back(std::accumulate(mask.begin(), mask.end(), 0));
             } else {
                 // First check what index the answer is initially
-                int answer_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), answer));
                 // print answer index
-                if (!quiet) {
-                    std::cout << "Answer index: " << answer_idx << std::endl;
-                }
+                // if (!quiet) {
+                //     int answer_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), answer));
+                //     std::cout << "Answer index: " << answer_idx << std::endl;
+                // }
                 std::vector<std::string> new_possibilities;
                 std::vector<float> new_priors;
                 std::vector<std::vector<coloring_t>> new_coloring_matrix;
@@ -161,19 +179,19 @@ void simulate_games(
                 possibility_counts.push_back(possibilities.size());
 
                 // Now check new index
-                int new_answer_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), answer));
-                if (!quiet) {
-                    std::cout << "New answer index: " << new_answer_idx << std::endl;
-                }
+                // if (!quiet) {
+                    // int new_answer_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), answer));
+                    // std::cout << "New answer index: " << new_answer_idx << std::endl;
+                // }
 
                 // print possibilities if length < 10
-                if (!quiet && possibilities.size() < 200) {
-                    std::cout << "Possibilities: ";
-                    for (int i = 0; i < possibilities.size(); i++) {
-                        std::cout << possibilities[i] << " ";
-                    }
-                    std::cout << std::endl;
-                }
+                // if (!quiet && possibilities.size() < 200) {
+                //     std::cout << "Possibilities: ";
+                //     for (int i = 0; i < possibilities.size(); i++) {
+                //         std::cout << possibilities[i] << " ";
+                //     }
+                //     std::cout << std::endl;
+                // }
             }
 
             score++;
@@ -187,6 +205,9 @@ void simulate_games(
                 working_coloring_matrix
             );
         }
+        if (!quiet) {
+            std::cout << "Score: " << score << std::endl;
+        }
 
         // TODO differentiate scoring properly based on solve or not
 
@@ -197,9 +218,6 @@ void simulate_games(
         std::cout << std::endl; // To move to the next line after the progress bar
 
         // EXIT THE PRGOGRAM (SMOKETEST)
-        if (SMOKETEST) {
-            break;
-        }
     }
 
 }
