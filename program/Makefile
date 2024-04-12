@@ -26,7 +26,6 @@ clean:
 	rm -f $(OBJECTS) $(EXECUTABLE)
 
 # Dependencies - you would fill these in with the specific header dependencies for each source
-main.o: wordle.h
 mathutils.o: mathutils.h
-word.o: word.h wordle.h
+word.o: word.h
 utils.o: utils.h

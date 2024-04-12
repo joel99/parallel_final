@@ -51,7 +51,8 @@ void solver_main(game_data_t &data,
                  word_t &answer,
                  wordlist_t &words,
                  priors_t &priors,
-                 std::vector<std::vector<coloring_t>> pattern_matrix){
+                 std::vector<std::vector<coloring_t>> pattern_matrix,
+                 bool verbose = true){
     // Initialize solver data
     int words_remaining = words.size();
         // The number of words consistent with the observed pattern
@@ -66,8 +67,10 @@ void solver_main(game_data_t &data,
     coloring_t feedback;
 
     for(int k = 0; k < 10; k ++ ){
-        std::cout << "Iteration " << data.size() << "\n";
-        std::cout << "Words Remaining " << words_remaining << "\n";
+        if (verbose) {
+            std::cout << "Iteration " << data.size() << "\n";
+            std::cout << "Words Remaining " << words_remaining << "\n";
+        }
 
         if(words_remaining <= 2){ // Edge Case: Random Guess
             candidate_idx = arg_max(mask);
@@ -94,16 +97,20 @@ void solver_main(game_data_t &data,
             }
         }
 
-        std::cout << "Proposed Guess: ";
-        word_print(words[candidate_idx], feedback);
-        std::cout << " With Entropy " << entropy_vector[candidate_idx] << "\n";
-        advance_round(data, words[candidate_idx], feedback, words_remaining);
-        // DEBUG CODE:
-        std::cout << "Remaining Words (" << words_remaining <<"):\n";
-        for(int i = 0; i < num_words; i++){
-            if(mask[i]) word_print(words[i], 0, ' ');
+        if (verbose) {
+            std::cout << "Proposed Guess: ";
+            word_print(words[candidate_idx], feedback);
+            std::cout << " With Entropy " << entropy_vector[candidate_idx] << "\n";
         }
-        std::cout << "\n";
+        advance_round(data, words[candidate_idx], feedback, words_remaining);
+        if (verbose) {
+            // DEBUG CODE:
+            std::cout << "Remaining Words (" << words_remaining <<"):\n";
+            for(int i = 0; i < num_words; i++){
+                if(mask[i]) word_print(words[i], 0, ' ');
+            }
+            std::cout << "\n";
+        }
         if(feedback == CORRECT_GUESS) break;
     }
 }
@@ -195,12 +202,14 @@ int main(int argc, char **argv) {
             word_print(answer, 0);
 
             auto answer_start = std::chrono::high_resolution_clock::now();
-            solver_main(data, answer, words, priors, pattern_matrix);
+            solver_main(data, answer, words, priors, pattern_matrix, false);
             auto answer_end = std::chrono::high_resolution_clock::now();
             auto answer_duration = std::chrono::duration_cast<std::chrono::milliseconds>(answer_end - answer_start);
             time_total += answer_duration.count();
         }
-        std::cout << "Time taken: " << time_total.count() << " milliseconds\n";
+        
+        float average_time = time_total / words.size();
+        std::cout << "Average time taken: " << average_time << " milliseconds per word\n";
     } else {
         // Interactive, 1-round solver
         solver_main(data, answer, words, priors, pattern_matrix);
