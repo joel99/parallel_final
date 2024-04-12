@@ -4,58 +4,7 @@
 #include <numeric>
 #include <cassert>
 
-coloring_t get_pattern(const std::string &guess, const std::string &answer)
-{
-    /*
-        Returns coloring_t.
-    */
-    // return 0; // Assume 0 is a placeholder pattern
-    // Indicator array, prevent matching the same letter twice. Init'd to false
-    bool query_matched[MAX_LETTERS] = {0};
-    bool answer_matched[MAX_LETTERS] = {0};
-
-    coloring_t out = 0;
-    coloring_t mult = 1;
-    // Check for green boxes first
-    for (int i = 0; i < MAX_LETTERS; i++)
-    {
-        if (guess[i] == answer[i])
-        { // todo restore word_t struct
-            out += (2 * mult);
-            query_matched[i] = true;
-            answer_matched[i] = true;
-        }
-        mult *= 3;
-    }
-
-    // reset multiplier
-    mult = 1;
-    // Check for yellow boxes
-    for (int i = 0; i < MAX_LETTERS; i++)
-    { // query index
-        if (query_matched[i])
-        {
-            mult *= 3;
-            continue;
-        }
-        for (int j = 0; j < MAX_LETTERS; j++)
-        { // answer index
-            if (i == j || answer_matched[j])
-                continue;
-            if (guess[i] == answer[j])
-            {
-                out += mult;
-                query_matched[i] = true;
-                answer_matched[j] = true;
-                break;
-            }
-        }
-        mult *= 3;
-    }
-    return out;
-}
-
-std::vector<std::float_t> get_weights(const std::vector<std::string> &possibilities, const std::vector<std::float_t> &priors)
+std::vector<std::float_t> get_weights(const std::vector<word_t> &possibilities, const std::vector<std::float_t> &priors)
 {
     /*
         possibilities: words with nonzero prob of being answer (based on feedback) TODO replace with mask
@@ -81,7 +30,7 @@ std::vector<std::float_t> get_weights(const std::vector<std::string> &possibilit
 }
 
 std::vector<std::float_t> get_entropies(
-    const std::vector<std::string> &possibilities, 
+    const std::vector<word_t> &possibilities, 
     const std::vector<std::float_t> &weights,
     const std::vector<std::vector<coloring_t>> &coloring_matrix
 )
@@ -127,9 +76,9 @@ std::vector<std::float_t> get_entropies(
     return entropies;
 }
 
-std::string optimal_guess(
-    const std::vector<std::string> &choices, // legal choices
-    const std::vector<std::string> &possibilities,
+word_t optimal_guess(
+    const std::vector<word_t> &choices, // legal choices
+    const std::vector<word_t> &possibilities,
     const std::vector<std::float_t> &priors, // TODO add the mask that reduces this
     const std::vector<std::vector<coloring_t>> &coloring_matrix // shape Guess x possibilities
 )
@@ -159,11 +108,11 @@ std::string optimal_guess(
     return choices[std::distance(ents.begin(), std::max_element(ents.begin(), ents.end()))]; // argmax - this likely can be parallel.
 }
 
-std::string get_next_guess(
-    const std::vector<std::string> &guesses,
+word_t get_next_guess(
+    const std::vector<word_t> &guesses,
     const std::vector<int> &patterns,
-    const std::vector<std::string> &possibilities,
-    const std::vector<std::string> &choices,
+    const std::vector<word_t> &possibilities,
+    const std::vector<word_t> &choices,
     const std::vector<std::float_t> &priors,
     const std::vector<std::vector<coloring_t>> &coloring_matrix
 )
@@ -186,21 +135,10 @@ std::string get_next_guess(
     return optimal_guess(choices, possibilities, priors, coloring_matrix);
 }
 
-std::vector<std::string> get_possible_words(const std::string &guess, coloring_t pattern, const std::vector<std::string> &possibilities)
-{
-    // Basic serial implementation
-    std::vector<std::string> filteredWords;
-    for (const auto &word : possibilities)
-    {
-        if (get_pattern(guess, word) == pattern)
-        {
-            filteredWords.push_back(word);
-        }
-    }
-    return filteredWords;
-}
-
-std::vector<bool> get_possible_words_matrix(const int guess_idx, coloring_t pattern, const std::vector<std::vector<coloring_t>> &coloring_matrix)
+std::vector<bool> get_possible_words_matrix(
+    const int guess_idx, 
+    coloring_t pattern, 
+    const std::vector<std::vector<coloring_t>> &coloring_matrix)
 {
     // return vector of length possibilities (coloring_matrix.size(1))
     // Index the matrix, simply.

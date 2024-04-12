@@ -1,5 +1,6 @@
 CXX=g++
 CXXFLAGS=-std=c++11 -Wall
+# SRC=test.cpp wordle_utils.cpp
 SRC=main.cpp wordle_utils.cpp wordle_solver.cpp
 OBJ=$(SRC:.cpp=.o)
 EXEC=wordle

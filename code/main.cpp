@@ -2,23 +2,21 @@
 #include <iostream>
 #include <cassert>
 
-const std::string DEFAULT_FIRST_GUESS = "steam"; // more common, salet is not in common list and is slower to iterate atm
 const bool SMOKETEST = true; // quick debuggin
 // const bool SMOKETEST = false; // quick debuggin
-// const std::string DEFAULT_FIRST_GUESS = "salet";
 
 // Implementation of simulate_games
 void simulate_games(
+    std::string first_guess,
     bool quiet,
     bool use_empirical_value,
-    const std::unordered_map<std::string, float>& priors,
-    const std::string& first_guess
+    const std::vector<float>& priors
 ) {
     assert(!use_empirical_value && "Empirical value usage is not supported.");
 
     auto word_list = load_word_list(SMOKETEST); // FAST MODE
 
-    std::vector<float> effective_priors; // todo convert to vector of flaots
+    std::vector<float> effective_priors;
     if (priors.empty()) {
         effective_priors = load_uniform_priors(word_list);
     } else {
@@ -33,13 +31,15 @@ void simulate_games(
         std::cout << "Loaded " << word_list.size() << " words." << std::endl;
     }
 
-    std::string guess = first_guess;
+    word_t init_guess;
     if (first_guess.empty()) {
-        guess = get_optimal_first_guess(word_list, effective_priors);
+        init_guess = get_optimal_first_guess(word_list, effective_priors);
+    } else {
+        str2word(first_guess, init_guess);
     }
-
+    exit(0);
     // Ready the evaluator
-    std::vector<std::string> test_set = word_list;
+    std::vector<word_t> test_set = word_list;
     std::vector<int> scores(test_set.size(), 0);
     
     size_t total_words = test_set.size();
@@ -55,13 +55,13 @@ void simulate_games(
     }
     
     for (const auto& answer : test_set) {
-        if (answer != "annex") { // DEBUG: Skip to speed up
+        if (answer.text != "annex") { // DEBUG: Skip to speed up
             continue;
         }
         print_progress_bar(++progress, total_words);
         // print true word
         if (!quiet) {
-            std::cout << "Answer: " << answer << std::endl;
+            std::cout << "Answer: " << answer.text << std::endl;
             // check whether the answer is in the word list
             if (std::find(word_list.begin(), word_list.end(), answer) == word_list.end()) {
                 std::cout << "Answer not in word list." << std::endl;
@@ -69,10 +69,10 @@ void simulate_games(
         }
 
         // * currently the shared state of the board is tracked in guesses/patterns
-        std::vector<std::string> guesses(MAX_GUESSES);
+        std::vector<word_t> guesses(MAX_GUESSES);
         std::vector<coloring_t> patterns;
         std::vector<int> possibility_counts;
-        std::vector<std::string> possibilities; // Filtered based on priors > 0 and not seen, if required.
+        std::vector<word_t> possibilities; // Filtered based on priors > 0 and not seen, if required.
         std::vector<float> working_priors;
         std::vector<std::vector<coloring_t>> working_coloring_matrix = coloring_matrix; // Shape Guess x Possibility
         // V1: TO CONSIDER Instead of reducing the active set of words, we simply maintain a mask
@@ -96,22 +96,21 @@ void simulate_games(
         }
 
         int score = 1;
-        std::string guess = first_guess;
+        word_t guess = init_guess;
         
-        while (guess != answer && score <= MAX_GUESSES) {
+        while (!word_eq(guess, answer) && score <= MAX_GUESSES) {
             
-            // DEBUG: print the expected pattern between 'cairn' and 'aback'
-            // if (guess == "cairn" && answer == "aback") {
-            //     std::cout << "Pattern between 'cairn' and 'aback': " << get_pattern(guess, answer) << std::endl;
-            //     // Check what's in the coloring matrix for cairn and aback, respectively
-            //     // cairn idx is index in word_list
-            //     int cairn_guess_idx = std::distance(word_list.begin(), std::find(word_list.begin(), word_list.end(), guess));
-            //     int aback_original_idx = std::distance(word_list.begin(), std::find(word_list.begin(), word_list.end(), answer));
-            //     int aback_answer_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), answer));
-            //     std::cout << "Coloring matrix for cairn and aback: " << coloring_matrix[cairn_guess_idx][aback_original_idx] << std::endl;
-            //     // Check in working index
-            //     std::cout << "Coloring matrix for cairn and aback in working index: " << working_coloring_matrix[cairn_guess_idx][aback_answer_idx] << std::endl;
-            // }
+            if (answer.text == "annex") {
+            // if (guess == "aback" && answer == "annex") {
+                std::cout << "Pattern between guess and 'annex': " << get_pattern(guess, answer) << std::endl;
+                int guess_idx = std::distance(word_list.begin(), std::find(word_list.begin(), word_list.end(), guess));
+                int answer_og_idx = std::distance(word_list.begin(), std::find(word_list.begin(), word_list.end(), answer));
+                int answer_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), answer));
+                std::cout << "Coloring matrix og: " << coloring_matrix[guess_idx][answer_og_idx] << std::endl;
+                std::cout << "Coloring matrix in working index: " << working_coloring_matrix[guess_idx][answer_idx] << std::endl;
+                // Things have gone wrong if there's a mismatch
+                word_print(word_list[guess_idx], get_pattern(word_list[guess_idx], word_list[answer_og_idx]));
+            }
 
             coloring_t pattern = get_pattern(guess, answer);
             guesses[score - 1] = guess;
@@ -123,7 +122,7 @@ void simulate_games(
             // print size of possibilities
             if (!quiet) {
                 std::cout << std::endl; // Move to a new line after the progress bar.
-                std::cout << "Turn: " << score << " Guess: " << guess << " at index: " << guess_idx << std::endl;
+                std::cout << "Turn: " << score << " Guess: " << guess.text << " at index: " << guess_idx << std::endl;
                 std::cout << "Size of possibilities: " << possibilities.size() << std::endl;
                 // OK, salet is not in here... where ... why?
                 // Check size of possibilites and identified coloring_matrix
@@ -157,7 +156,7 @@ void simulate_games(
                 //     int answer_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), answer));
                 //     std::cout << "Answer index: " << answer_idx << std::endl;
                 // }
-                std::vector<std::string> new_possibilities;
+                std::vector<word_t> new_possibilities;
                 std::vector<float> new_priors;
                 std::vector<std::vector<coloring_t>> new_coloring_matrix;
                 // Init
@@ -224,11 +223,11 @@ void simulate_games(
 
 int main() {
     std::cout << "Wordle Simulator and Solver" << std::endl;
+    std::string first_guess = "steam";
     simulate_games(
+        first_guess,
         false, // quiet
-        false, // use_empirical_value
-        {}, // priors
-        DEFAULT_FIRST_GUESS // first_guess
+        false // use_empirical_value
     );
     return 0;
 }
