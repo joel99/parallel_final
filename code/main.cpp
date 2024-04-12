@@ -56,6 +56,14 @@ void simulate_games(
     
     for (const auto& answer : test_set) {
         print_progress_bar(++progress, total_words);
+        // print true word
+        if (!quiet) {
+            std::cout << "Answer: " << answer << std::endl;
+            // check whether the answer is in the word list
+            if (std::find(word_list.begin(), word_list.end(), answer) == word_list.end()) {
+                std::cout << "Answer not in word list." << std::endl;
+            }
+        }
 
         // * currently the shared state of the board is tracked in guesses/patterns
         std::vector<std::string> guesses(MAX_GUESSES);
@@ -63,8 +71,9 @@ void simulate_games(
         std::vector<int> possibility_counts;
         std::vector<std::string> possibilities; // Filtered based on priors > 0 and not seen, if required.
         std::vector<float> working_priors;
-
+        std::vector<std::vector<coloring_t>> working_coloring_matrix = coloring_matrix; // Shape Guess x Possibility
         // V1: TO CONSIDER Instead of reducing the active set of words, we simply maintain a mask
+
         if (POSSIBILITY_MASK) {
             std::vector<bool> valid_mask(word_list.size(), true); // Mask to track valid words (not seen yet
             for (int i = 0; i < word_list.size(); i++) {
@@ -104,24 +113,32 @@ void simulate_games(
             // print guess and index
             if (!quiet) {
                 // OK, salet is not in here... where ... why?
-                std::cout << "Guess: " << guess << " at index: " << guess_idx << std::endl;
+                std::cout << "Turn: " << score << " Guess: " << guess << " at index: " << guess_idx << std::endl;
                 // Check size of possibilites and identified coloring_matrix
                 std::cout << "Size of possibilities: " << possibilities.size() << std::endl;
-                std::cout << "Size of row 0 of coloring_matrix: " << coloring_matrix[0].size() << std::endl;
-                std::cout << "Size of coloring_matrix: " << coloring_matrix.size() << std::endl;
+                std::cout << "Size of row 0 of coloring_matrix: " << working_coloring_matrix[0].size() << std::endl;
+                std::cout << "Size of coloring_matrix: " << working_coloring_matrix.size() << std::endl;
             }
 
             // TODO use valid mask here
-            std::vector<bool> mask = get_possible_words_matrix(guess_idx, pattern, coloring_matrix);
+            std::vector<bool> mask = get_possible_words_matrix(guess_idx, pattern, working_coloring_matrix);
             // print sum anyway
             if (!quiet) {
-                std::cout << "Sum of mask: " << std::accumulate(mask.begin(), mask.end(), 0) << std::endl;
+                int mask_sum = std::accumulate(mask.begin(), mask.end(), 0);
+                std::cout << "Sum of mask: " << mask_sum << std::endl;
             }
             if (POSSIBILITY_MASK) {
                 // just keep the mask and call mask-based functions
                 possibility_counts.push_back(std::accumulate(mask.begin(), mask.end(), 0));
             } else {
                 // reduction
+
+                // First check what index the answer is initially
+                int answer_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), answer));
+                // print answer index
+                if (!quiet) {
+                    std::cout << "Answer index: " << answer_idx << std::endl;
+                }
                 std::vector<std::string> new_possibilities;
                 std::vector<float> new_priors;
                 std::vector<std::vector<coloring_t>> new_coloring_matrix;
@@ -138,7 +155,25 @@ void simulate_games(
                         }
                     }
                 }
+                possibilities = new_possibilities;
+                working_priors = new_priors;
+                working_coloring_matrix = new_coloring_matrix;
                 possibility_counts.push_back(possibilities.size());
+
+                // Now check new index
+                int new_answer_idx = std::distance(possibilities.begin(), std::find(possibilities.begin(), possibilities.end(), answer));
+                if (!quiet) {
+                    std::cout << "New answer index: " << new_answer_idx << std::endl;
+                }
+
+                // print possibilities if length < 10
+                if (!quiet && possibilities.size() < 10) {
+                    std::cout << "Possibilities: ";
+                    for (int i = 0; i < possibilities.size(); i++) {
+                        std::cout << possibilities[i] << " ";
+                    }
+                    std::cout << std::endl;
+                }
             }
 
             score++;
@@ -149,7 +184,7 @@ void simulate_games(
                 possibilities, 
                 word_list, 
                 working_priors,
-                coloring_matrix
+                working_coloring_matrix
             );
         }
 
@@ -160,6 +195,11 @@ void simulate_games(
 
         // At the end of each loop
         std::cout << std::endl; // To move to the next line after the progress bar
+
+        // EXIT THE PRGOGRAM (SMOKETEST)
+        if (SMOKETEST) {
+            break;
+        }
     }
 
 }

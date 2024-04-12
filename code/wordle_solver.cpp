@@ -83,36 +83,57 @@ std::vector<std::float_t> get_weights(const std::vector<std::string> &possibilit
 std::vector<std::float_t> get_entropies(
     const std::vector<std::string> &possibilities, 
     const std::vector<std::float_t> &weights,
-    const std::vector<std::vector<coloring_t>> &coloring_matrix // assume this is of same length as possiblities
+    const std::vector<std::vector<coloring_t>> &coloring_matrix
 )
 {
     /*
         possibilities: words with nonzero prob of being answer (based on feedback)
-        weights: normalized weights
+        weights: normalized weights of possibilities, of length possibilities
+        coloring_matrix: shape Guess x possibilities, elements 0-3^MAX_LETTERS
+
+        Scatter reduce weights to different feedback labels for each guess.
+
+        returns: vector of entropies of length Guess
     */
     if (std::accumulate(weights.begin(), weights.end(), 0.0f) == 0)
     {
-        return std::vector<std::float_t>(possibilities.size(), 0.0);
+        return std::vector<std::float_t>(coloring_matrix.size(), 0.0);
     }
-    // Initialize a 2D matrix of length possibilites x 3^MAX_LETTERS
-    std::vector<std::vector<std::float_t>> probs(possibilities.size(), std::vector<std::float_t>(std::pow(3, MAX_LETTERS), 0.0f));
+    // print that we've reached here
+    std::cout << "Weights are nonzero." << std::endl;
+    // Verify shapes
+    assert(coloring_matrix[0].size() == weights.size() && "Coloring matrix must match weights.");
+    assert(coloring_matrix[0].size() == possibilities.size() && "Coloring matrix must match possibilities.");
+    // Initialize a 2D matrix of length Guess x 3^MAX_LETTERS
+    std::vector<std::vector<std::float_t>> probs(coloring_matrix.size(), std::vector<std::float_t>(std::pow(3, MAX_LETTERS), 0.0f));
 
     // Serial implementation right now
-    for (int i = 0; i < probs.size(); i++)
+    for (int guess = 0; guess < probs.size(); guess++)
     {
-        for (int j = 0; j < probs[i].size(); j++)
+        for (int candidate = 0; candidate < coloring_matrix[guess].size(); candidate++)
         {
-            coloring_t idx = coloring_matrix[i][j];
-            probs[i][idx] += weights[i];
+            coloring_t idx = coloring_matrix[guess][candidate];
+            probs[guess][idx] += weights[candidate];
         }
     }
-    
+    // pass loop
+    // std::cout << "Probabilities calculated." << std::endl;
+    // check sums close to 1
+    // for (int i = 0; i < probs.size(); i++)
+    // {
+    //     std::cout << "Sum of probs[" << i << "]: " << std::accumulate(probs[i].begin(), probs[i].end(), 0.0f) << std::endl;
+    // }
+
     // prob to entropy
     std::vector<std::float_t> entropies;
     for (int i = 0; i < probs.size(); i++)
     {
-        entropies.push_back(calculate_entropy(probs[i]));
+        // print start loop idx
+        std::float_t entropy = calculate_entropy(probs[i]);
+        entropies.push_back(entropy);
     }
+    // print out of this loop
+    return entropies;
 }
 
 std::string optimal_guess(
@@ -136,13 +157,14 @@ std::string optimal_guess(
     }
     assert(possibilities.size() == priors.size() && "Priors must match possibilities");
     assert(possibilities.size() == coloring_matrix[0].size() && "Coloring matrix must match possibilities");
-    // print that we have passed
-    std::cout << "Checks passed: Priors match possibilities and Coloring matrix matches possibilities." << std::endl;
 
     std::vector<std::float_t> weights = get_weights(possibilities, priors); // this appears to be a normalizing step on priors.
-    // hm... does this need to happen before or after?
+    // std::cout << "Weights calculated." << std::endl;
+    // std::cout << "Sample weights: " << weights[0] << ", " << weights[1] << ", " << weights[2] << std::endl;
     std::vector<std::float_t> ents = get_entropies(possibilities, weights, coloring_matrix); // scatter reduce
-    // ents needs to be a vector of ints
+    // return choices[0];
+    // std::cout << "Entropies calculated." << std::endl;
+
     return choices[std::distance(ents.begin(), std::max_element(ents.begin(), ents.end()))]; // argmax - this likely can be parallel.
 }
 
