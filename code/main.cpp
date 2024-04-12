@@ -51,6 +51,7 @@ void simulate_games(
         for (int j = 0; j < word_list.size(); j++) {
             row[j] = get_pattern(word_list[i], word_list[j]);
         }
+        coloring_matrix.push_back(row);
     }
     
     for (const auto& answer : test_set) {
@@ -104,6 +105,10 @@ void simulate_games(
             if (!quiet) {
                 // OK, salet is not in here... where ... why?
                 std::cout << "Guess: " << guess << " at index: " << guess_idx << std::endl;
+                // Check size of possibilites and identified coloring_matrix
+                std::cout << "Size of possibilities: " << possibilities.size() << std::endl;
+                std::cout << "Size of row 0 of coloring_matrix: " << coloring_matrix[0].size() << std::endl;
+                std::cout << "Size of coloring_matrix: " << coloring_matrix.size() << std::endl;
             }
 
             // TODO use valid mask here
