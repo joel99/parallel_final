@@ -27,14 +27,15 @@ wordlist_t read_words_from_file(std::string input_filename);
 
 /**
  * I/O function for prior list. See "utils.h" file for file formatting requirements.
+ * @param sum returns the sum of all priors
 */
-
-priors_t read_priors_from_file(std::string input_filename);
+priors_t read_priors_from_file(std::string input_filename, float &sum);
 
 /**
  * Generate a uniform prior if prior file is not provided.
+ * @param sum returns the sum of all priors
 */
-priors_t generate_uniform_priors(unsigned long wordlist_size);
+priors_t generate_uniform_priors(unsigned long wordlist_size, float &sum);
 
 /**
  * File Formatting:

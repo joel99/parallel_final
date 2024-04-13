@@ -13,8 +13,10 @@ unsigned long ceil_xdivy(unsigned long X, unsigned long Y){
     return (X + (Y - 1)) / Y;
 }
 
+
+
 void usage(char *exec_name){
-    std::cout << "Usage:\n" << exec_name << "-f <word list> -n <thread count> [-p <prior probabilities>] \n";
+    std::cout << "Usage:\n" << exec_name << "-f <word list> -n <thread count> [-p <prior weights>] \n";
     return;
 }
 
@@ -51,59 +53,78 @@ void solver_main(game_data_t &data,
                  word_t &answer,
                  wordlist_t &words,
                  priors_t &priors,
-                 std::vector<std::vector<coloring_t>> pattern_matrix){
-    // Initialize solver data
+                 float prior_sum,
+                 std::vector<std::vector<coloring_t>> &pattern_matrix){
+    // Remark: prior_sum should be returned by the prior loading function
+    // Remark: This function destructively modifies the priors vector
+
+    // Initialize Additional Solver Data
     int words_remaining = words.size();
         // The number of words consistent with the observed pattern
     int num_words = words.size();
         // The number of total candidate words
     int num_patterns = get_num_patterns();
-    std::vector<bool> mask(words.size(), 1);
     std::vector<float> probability_scratch;
     std::vector<float> entropy_vector(num_words, 0.0f);
 
     int candidate_idx;
     coloring_t feedback;
 
-    for(int k = 0; k < 10; k ++ ){
-        std::cout << "Iteration " << data.size() << "\n";
-        std::cout << "Words Remaining " << words_remaining << "\n";
+    // Computes the initial uncertainty measure
+    float uncertainty = entropy_reduce(priors, prior_sum);
 
-        if(words_remaining <= 2){ // Edge Case: Random Guess
-            candidate_idx = arg_max(mask);
+    // DEBUG CODE
+    // std::cout << "Initial Uncertainty: " << uncertainty << "\n";
+
+    for(int k = 0; k < 10; k ++){
+        if(words_remaining <= 2){ 
+            // Perform random guess if there are only 2 possible guesses left
+            candidate_idx = arg_max(priors);
+            entropy_vector[candidate_idx] = 0.0f;
         }
         else{
             for(int word_idx = 0; word_idx < num_words; word_idx++){
-                // Pool up the probabilities of each coloring pattern
+                // Pool up the weighted freqeuency of all patterns
                 probability_scratch.assign(num_patterns, 0.0f);
-                masked_scatter_reduce(pattern_matrix[word_idx], priors,
-                    probability_scratch, mask, 1.0f/static_cast<float>(words_remaining));
+                scatter_reduce(pattern_matrix[word_idx], priors,
+                    probability_scratch);
+                // Normalize the scratch work into a probability and 
                 // Compute the entropy via map reduce
-                entropy_vector[word_idx] = map_reduce_sum(probability_scratch, &entropy);
+                entropy_vector[word_idx] = entropy_reduce(probability_scratch, 
+                    prior_sum);
             }
-            // Find the word that maximizes entropy, obtain feedback
+            // Find the word that maximizes the expected entropy entropy.
             candidate_idx = arg_max(entropy_vector);
         }
 
+        // Obtain feedback from guess
         feedback = word_cmp(words[candidate_idx], answer);
+        // Perform updates to the solver data
         // Update the number of words remaining
+        words_remaining = 0;
+        prior_sum = 0.0f;
         for(int i = 0; i < num_words; i++){
-            if(mask[i] && pattern_matrix[candidate_idx][i] != feedback){
-                mask[i] = false;
-                words_remaining -= 1;
+            if(is_zero(priors[i])) continue; // prior == 0 for invalid
+            if(pattern_matrix[candidate_idx][i] != feedback) priors[i] = 0.0f;
+            else{
+                words_remaining += 1;
+                prior_sum += priors[i];
             }
         }
+        // Compute the new uncertainty measure after a guess
+        uncertainty = entropy_reduce(priors, prior_sum);
 
-        std::cout << "Proposed Guess: ";
-        word_print(words[candidate_idx], feedback);
-        std::cout << " With Entropy " << entropy_vector[candidate_idx] << "\n";
-        advance_round(data, words[candidate_idx], feedback, words_remaining);
         // DEBUG CODE:
+        std::cout << "\n Proposed Guess: ";
+        word_print(words[candidate_idx], feedback);
+        std::cout << "Expected Entropy from Word: " << entropy_vector[candidate_idx] << "\n";
+        std::cout << "Remaining Uncertainty: " << uncertainty << "\n";
         std::cout << "Remaining Words (" << words_remaining <<"):\n";
         for(int i = 0; i < num_words; i++){
-            if(mask[i]) word_print(words[i], 0, ' ');
+            if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
         }
         std::cout << "\n";
+        advance_round(data, words[candidate_idx], feedback, words_remaining);
         if(feedback == CORRECT_GUESS) break;
     }
 }
@@ -141,10 +162,11 @@ int main(int argc, char **argv) {
     wordlist_t words = read_words_from_file(text_filename);
     // Loading the list of priors
     priors_t priors;
+    float priors_sum; // The sum of all prior weights.
     if(empty(prior_filename))
-        priors = generate_uniform_priors(words.size());
+        priors = generate_uniform_priors(words.size(), priors_sum);
     else{
-        priors = read_priors_from_file(prior_filename);
+        priors = read_priors_from_file(prior_filename, priors_sum);
     }
     // Check if size match:
     if(priors.size() != words.size()){
@@ -177,7 +199,7 @@ int main(int argc, char **argv) {
     compute_patterns(pattern_matrix, words);
 
     // Enter the main solver loop
-    solver_main(data, answer, words, priors, pattern_matrix);
+    solver_main(data, answer, words, priors, priors_sum, pattern_matrix);
     
     return 0;
 }

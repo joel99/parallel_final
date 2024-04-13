@@ -13,8 +13,10 @@
 #define PRECISION 1e-12
 typedef coloring_t index_t;
 
-/** Single term entropy computation */
-float entropy(float prob);
+/**
+ * Test if a floating point number is 0.
+*/
+bool is_zero(float x);
 
 /**
  * Generic Scatter Reduce Function
@@ -24,7 +26,7 @@ float entropy(float prob);
  * @param multipler
 */
 void scatter_reduce(std::vector<index_t> &index, std::vector<float> &in,
-    std::vector<float> &out, float multiplier = 1.0);
+    std::vector<float> &out);
 
 /**
  * Masked Scatter Reduce Function
@@ -35,12 +37,14 @@ void scatter_reduce(std::vector<index_t> &index, std::vector<float> &in,
  * @param multipler
 */
 void masked_scatter_reduce(std::vector<index_t> &index, std::vector<float> &in,
-    std::vector<float> &out, std::vector<bool> &mask, float multiplier = 1.0);
+    std::vector<float> &out, std::vector<bool> &mask);
 
 /**
- * Generic map reduce with sum as the reduction function:
- * Returns \sum_{x \in vec} f(x)
+ * Computes the entropy via a map reduce operation
+ * @param floats - Either a probability or a pooled weights
+ * @param noramlize - The constant multiple applied to each term to normalize
+ * into a probability distribution.
 */
-float map_reduce_sum(std::vector<float> vec, float (*f) (float));
+float entropy_reduce(std::vector<float> floats, float normalize = 1.0f);
 
 #endif /* WORD_H */

@@ -44,7 +44,7 @@ wordlist_t read_words_from_file(std::string input_filename){
 }
 
 
-priors_t read_priors_from_file(std::string input_filename){
+priors_t read_priors_from_file(std::string input_filename, float &sum){
     std::ifstream file(input_filename);
     if(!file.is_open()){
         std::cerr << "Unable to open file: " << input_filename << " .\n";
@@ -70,18 +70,22 @@ priors_t read_priors_from_file(std::string input_filename){
         exit(1);
     }
     priors_t out(count);
+    sum = 0.0f;
+    float temp;
     while (getline(file, line)) {
         if(index >= count) break; // Avoid buffer overflow.
         // Remove newline characters and add to the list if line is not empty
         if (!line.empty()) {
             try{
-                out[index] = std::stof(line);
+                temp = std::stof(line);
             }
             catch(const std::exception& e){
                 std::cerr << "Unsupported File Format: " << input_filename
                     << " [Err: Invalid Prior]\n";
                  exit(1);
             }
+            out[index] = temp;
+            sum += temp;
             index ++;
         }
     }
@@ -89,8 +93,9 @@ priors_t read_priors_from_file(std::string input_filename){
     return out;
 }
 
-priors_t generate_uniform_priors(unsigned long size){
+priors_t generate_uniform_priors(unsigned long size, float &sum){
     priors_t out(size, 1.0f);
+    sum = 1.0f * static_cast<float>(size);
     return out;
 }
 
