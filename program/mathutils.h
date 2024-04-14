@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <vector>
+#include <cstdlib>
 #include "word.h"
 
 #ifndef MATH_H
@@ -17,6 +18,11 @@ typedef coloring_t index_t;
  * Test if a floating point number is 0.
 */
 bool is_zero(float x);
+
+/**
+ * returns a random floating point number between low and high.
+*/
+float f_rand(float low, float high);
 
 /**
  * Generic Scatter Reduce Function
@@ -45,6 +51,6 @@ void masked_scatter_reduce(std::vector<index_t> &index, std::vector<float> &in,
  * @param noramlize - The constant multiple applied to each term to normalize
  * into a probability distribution.
 */
-float entropy_reduce(std::vector<float> floats, float normalize = 1.0f);
+float entropy_compute(std::vector<float> floats, float normalize = 1.0f);
 
 #endif /* WORD_H */

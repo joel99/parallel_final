@@ -13,6 +13,9 @@ unsigned long get_num_patterns(){
     return out;
 }
 
+bool is_correct_guess(coloring_t c){
+    return (c == get_num_patterns() - 1);
+}
 
 coloring_t word_cmp(word_t &query, word_t &answer){
     // Indicator array, prevent matching the same letter twice. Init'd to false

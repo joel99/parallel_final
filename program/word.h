@@ -28,6 +28,11 @@ typedef unsigned short coloring_t;
 unsigned long get_num_patterns();
 
 /**
+ * Determines if a specific pattern corresponds to a correct guess.
+*/
+bool is_correct_guess(coloring_t c);
+
+/**
  * Word comparison function based on the wordle rules.
  * @param query The query word you would input into the wordle board
  * @param answer The underlying answer

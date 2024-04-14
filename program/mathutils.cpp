@@ -4,6 +4,11 @@ bool is_zero(float x){
     return std::fabs(x) <= PRECISION;
 }
 
+// https://stackoverflow.com/questions/686353/random-float-number-generation
+float f_rand(float low, float high){
+    return static_cast <float> (rand()) /
+        ( static_cast <float> (RAND_MAX/(high-low)));
+}
 
 float entropy(float prob){
     if(is_zero(prob)) return 0.0;
@@ -34,7 +39,7 @@ void masked_scatter_reduce(std::vector<index_t> &index, std::vector<float> &in,
     }
 }
 
-float entropy_reduce(std::vector<float> floats, float normalize){
+float entropy_compute(std::vector<float> floats, float normalize){
     float out = 0.0;
     for(size_t i = 0; i < floats.size(); i++){
         out += normalize_entropy(floats[i], normalize);

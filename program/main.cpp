@@ -7,6 +7,7 @@
 #include <fstream>
 #include <cassert>
 #include <cstring>
+#include <chrono>
 #include <unistd.h>
 
 unsigned long ceil_xdivy(unsigned long X, unsigned long Y){
@@ -16,7 +17,9 @@ unsigned long ceil_xdivy(unsigned long X, unsigned long Y){
 
 
 void usage(char *exec_name){
-    std::cout << "Usage:\n" << exec_name << "-f <word list> -n <thread count> [-p <prior weights>] \n";
+    std::cout << "Usage:\n" << exec_name << "-f <word list> -n <thread count> [-p <prior weights> -t <test list> -r -v -g] \n";
+    std::cout << "-v: verbose mode, -r: use randomized priors, -g: report game statistics after each round";
+    std::cout << "The test list must contain words in the word list\n";
     return;
 }
 
@@ -49,105 +52,211 @@ void compute_patterns(std::vector<std::vector<coloring_t>> &pattern_matrix,
     }
 }
 
-void solver_main(game_data_t &data,
-                 word_t &answer,
-                 wordlist_t &words,
-                 priors_t &priors,
-                 float prior_sum,
-                 std::vector<std::vector<coloring_t>> &pattern_matrix){
-    // Remark: prior_sum should be returned by the prior loading function
-    // Remark: This function destructively modifies the priors vector
-
+/**
+ * Verbose Mode Solver: Requires word list for information output.
+ * @param data - The game data, used to record the game
+ *               Use NULL if do not wish to record game data (performance mode)
+ * @param prior - The prior weights of each word. 
+ * @param pattern_matrix the coloring pattern matrrx.
+ * @param prior_sum - The sum of all prior weights, returned by the function
+ *                    that generates the vector of prior weights
+ * @param answer - The WORD INDEX of the correct word.
+ * @warning This function destructively modifies the priors vector.
+*/
+void solver_verbose(game_data_t *data,
+            wordlist_t &words,
+            priors_t &priors,
+            std::vector<std::vector<coloring_t>> &pattern_matrix,
+            int &answer,
+            float prior_sum){
     // Initialize Additional Solver Data
-    int words_remaining = words.size();
-        // The number of words consistent with the observed pattern
-    int num_words = words.size();
-        // The number of total candidate words
+    int num_words = pattern_matrix.size();
+    int words_remaining = num_words;
     int num_patterns = get_num_patterns();
+    // Scratch work and entrypy storage.
     std::vector<float> probability_scratch;
-    std::vector<float> entropy_vector(num_words, 0.0f);
+    std::vector<float> entropys(num_words, 0.0f);
 
-    int candidate_idx;
+    int guess; // The index to the guessed word
     coloring_t feedback;
-
     // Computes the initial uncertainty measure
-    float uncertainty = entropy_reduce(priors, prior_sum);
+    float uncertainty = entropy_compute(priors, prior_sum);
 
-    // DEBUG CODE
-    // std::cout << "Initial Uncertainty: " << uncertainty << "\n";
+    std::cout << "Initial Uncertainty: " << uncertainty << "\n";
+    bool random_select;
+
 
     for(int k = 0; k < 10; k ++){
+        /******************** Entropy Computation Phase **********************/
+        random_select = false;
         if(words_remaining <= 2){ 
-            // Perform random guess if there are only 2 possible guesses left
-            candidate_idx = arg_max(priors);
-            entropy_vector[candidate_idx] = 0.0f;
+            // Random guess if there are no more than 2 valid words
+            guess = arg_max(priors);
+            random_select = true;
         }
-        else{
+        else{ // More than 2 words: Compute the entropy for ALL words
             for(int word_idx = 0; word_idx < num_words; word_idx++){
-                // Pool up the weighted freqeuency of all patterns
                 probability_scratch.assign(num_patterns, 0.0f);
+                // Pool up the total word weights for each pattern
                 scatter_reduce(pattern_matrix[word_idx], priors,
                     probability_scratch);
-                // Normalize the scratch work into a probability and 
+                // Normalize the pooled weights into a probability distribution
                 // Compute the entropy via map reduce
-                entropy_vector[word_idx] = entropy_reduce(probability_scratch, 
+                entropys[word_idx] = entropy_compute(probability_scratch, 
                     prior_sum);
             }
             // Find the word that maximizes the expected entropy entropy.
-            candidate_idx = arg_max(entropy_vector);
+            guess = arg_max(entropys);
         }
 
-        // Obtain feedback from guess
-        feedback = word_cmp(words[candidate_idx], answer);
-        // Perform updates to the solver data
-        // Update the number of words remaining
+        // Check for guess feed back.
+        feedback = pattern_matrix[guess][answer];
+
+        std::cout << "\nProposed Guess: ";
+        word_print(words[guess], feedback);
+        if(!random_select)
+            std::cout << "Expected Entropy: " << entropys[guess] << "\n";
+
+        /******************** Update Phase **********************/
         words_remaining = 0;
         prior_sum = 0.0f;
         for(int i = 0; i < num_words; i++){
             if(is_zero(priors[i])) continue; // prior == 0 for invalid
-            if(pattern_matrix[candidate_idx][i] != feedback) priors[i] = 0.0f;
+            if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
             else{
                 words_remaining += 1;
                 prior_sum += priors[i];
             }
         }
         // Compute the new uncertainty measure after a guess
-        uncertainty = entropy_reduce(priors, prior_sum);
+        uncertainty = entropy_compute(priors, prior_sum);
 
-        // DEBUG CODE:
-        std::cout << "\n Proposed Guess: ";
-        word_print(words[candidate_idx], feedback);
-        std::cout << "Expected Entropy from Word: " << entropy_vector[candidate_idx] << "\n";
         std::cout << "Remaining Uncertainty: " << uncertainty << "\n";
         std::cout << "Remaining Words (" << words_remaining <<"):\n";
         for(int i = 0; i < num_words; i++){
             if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
         }
         std::cout << "\n";
-        advance_round(data, words[candidate_idx], feedback, words_remaining);
-        if(feedback == CORRECT_GUESS) break;
+       if(data != NULL){
+            advance_round(*data, guess, feedback, words_remaining, uncertainty);
+        }
+        if(is_correct_guess(feedback)) break;
     }
 }
 
 
 
+/**
+ * The main solver routine. Eliminated the need to input the word list.
+ * The final word answer is coded as a word index in the word list.
+ * @param data - The game data, used to record the game
+ *               Use NULL if do not wish to record game data (performance mode)
+ * @param prior - The prior weights of each word. 
+ * @param pattern_matrix the coloring pattern matrrx.
+ * @param prior_sum - The sum of all prior weights, returned by the function
+ *                    that generates the vector of prior weights
+ * @param answer - The WORD INDEX of the correct word.
+ * @warning This function destructively modifies the priors vector.
+*/
+void solver(game_data_t *data,
+            priors_t &priors,
+            std::vector<std::vector<coloring_t>> &pattern_matrix,
+            int &answer,
+            float prior_sum){
+
+    // Initialize Additional Solver Data
+    int num_words = pattern_matrix.size();
+    int words_remaining = num_words;
+    int num_patterns = get_num_patterns();
+    // Scratch work and entrypy storage.
+    std::vector<float> probability_scratch;
+    std::vector<float> entropys(num_words, 0.0f);
+
+    int guess; // The index to the guessed word
+    coloring_t feedback;
+    // Computes the initial uncertainty measure
+    float uncertainty = entropy_compute(priors, prior_sum);
+
+    for(int k = 0; k < 10; k ++){
+        /******************** Entropy Computation Phase **********************/
+        if(words_remaining <= 2){ 
+            // Random guess if there are no more than 2 valid words
+            guess = arg_max(priors);
+        }
+        else{ // More than 2 words: Compute the entropy for ALL words
+            for(int word_idx = 0; word_idx < num_words; word_idx++){
+                probability_scratch.assign(num_patterns, 0.0f);
+                // Pool up the total word weights for each pattern
+                scatter_reduce(pattern_matrix[word_idx], priors,
+                    probability_scratch);
+                // Normalize the pooled weights into a probability distribution
+                // Compute the entropy via map reduce
+                entropys[word_idx] = entropy_compute(probability_scratch, 
+                    prior_sum);
+            }
+            // Find the word that maximizes the expected entropy entropy.
+            guess = arg_max(entropys);
+        }
+
+        // Check for guess feed back.
+        feedback = pattern_matrix[guess][answer];
+
+        /******************** Update Phase **********************/
+        words_remaining = 0;
+        prior_sum = 0.0f;
+        for(int i = 0; i < num_words; i++){
+            if(is_zero(priors[i])) continue; // prior == 0 for invalid
+            if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
+            else{
+                words_remaining += 1;
+                prior_sum += priors[i];
+            }
+        }
+        // Compute the new uncertainty measure after a guess
+        uncertainty = entropy_compute(priors, prior_sum);
+
+
+        // Record the game data if requested
+        if(data != NULL){
+            advance_round(*data, guess, feedback, words_remaining, uncertainty);
+        }
+        if(is_correct_guess(feedback)) break;
+    }
+}
+
 int main(int argc, char **argv) {
     // Initialization Stage
     std::string text_filename;
+    std::string test_filename;
     std::string prior_filename;
     int num_threads = 0;
+    bool verbose = false;
+    bool rand_prior = false;
+    bool game_report = false;
     int opt;
     // Read program parameters
-    while ((opt = getopt(argc, argv, "f:n:p:")) != -1) {
+    while ((opt = getopt(argc, argv, "f:n:p:t:rvg")) != -1) {
         switch (opt) {
         case 'f':
             text_filename = optarg;
+            break;
+        case 't':
+            test_filename = optarg;
             break;
         case 'p':
             prior_filename = optarg;
             break;
         case 'n':
             num_threads = atoi(optarg);
+            break;
+        case 'r':
+            rand_prior = true;
+            break;
+        case 'v':
+            verbose = true;
+            break;
+        case 'g':
+            game_report = true;
             break;
         default:
             usage(argv[0]);
@@ -158,48 +267,99 @@ int main(int argc, char **argv) {
         usage(argv[0]);
         exit(1);
     }
-    // Loading the list of words
+
+    // Initializing word list
     wordlist_t words = read_words_from_file(text_filename);
-    // Loading the list of priors
+    // Initialize prior weights
     priors_t priors;
     float priors_sum; // The sum of all prior weights.
     if(empty(prior_filename))
-        priors = generate_uniform_priors(words.size(), priors_sum);
+        if(rand_prior){
+            priors = generate_random_priors(words.size(), priors_sum);
+        } 
+        else{
+            priors = generate_uniform_priors(words.size(), priors_sum);
+        }
     else{
         priors = read_priors_from_file(prior_filename, priors_sum);
+        if(priors.size() != words.size()){  // Check if size match:
+            std::cerr << "Input Files Length Mismatch!\n";
+            exit(1);
+        }
     }
-    // Check if size match:
-    if(priors.size() != words.size()){
-        std::cerr << "Input Files Length Mismatch!\n";
-        exit(1);
+
+    // Initialize test set: 
+    std::vector<int> test_set;
+    std::string linebuf;
+    word_t buffer;
+    if(!empty(test_filename)){ // Read test set from file
+        test_set = read_test_set_from_file(test_filename, words);
     }
+    else{
+        test_set.resize(1);
+        std::cout << "Test set is not provied. Please manually enter the answer word:\n";
+        while(1){
+            std::getline(std::cin, linebuf);
+            if(linebuf.empty()) continue;
+            str2word(linebuf, buffer);
+            test_set[0] = list_query(words, buffer);
+            if(test_set[0] < 0){
+                std::cout << "The word '";
+                word_print(buffer, 0, 0x20);
+                std::cout << "' is not valid.\n";
+            }
+            else break;
+        }
+    }
+  
+   
 
     // Initialize all data structures used in the wordle solver
     game_data_t data;
     std::vector<std::vector<coloring_t>> 
         pattern_matrix(words.size(), std::vector<coloring_t>(words.size()));
 
-    // Asks the user to pick a correct answer word:
-    std::string buffer;
-    word_t answer;
-    std::cout << "Enter Final Answer:\n";
-    while(1){
-        std::getline(std::cin, buffer);
-        if(buffer.empty()) continue;
-        str2word(buffer, answer);
-        if(!is_in_wordlist(words, answer)){
-            std::cout << "The word you entered is not valid!\n";
-        }
-        else break;
-    }
+    // IO Complete
+    
 
-    // Initialization Complete
+    // Time initialization
+    auto precompute_start = std::chrono::high_resolution_clock::now();
     
     // Precompute the coloring matrix
     compute_patterns(pattern_matrix, words);
 
-    // Enter the main solver loop
-    solver_main(data, answer, words, priors, priors_sum, pattern_matrix);
-    
+    auto precompute_end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(precompute_end - precompute_start);
+
+    std::cout << "Initialization: " << duration.count() << " milliseconds\n";
+    // Benchmark all words in the test set.
+    float time_total = 0.0f;
+    int answer_index;
+    priors_t prior_compute; // Makes a deep copy for each benchmark
+
+    auto answer_start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < test_set.size(); i ++){
+        prior_compute = priors;
+        answer_index = test_set[i];
+        if(verbose){
+            std::cout << "Benchmarking word: ";
+            word_print(words[answer_index]);
+            solver_verbose(&data, words, prior_compute, pattern_matrix, answer_index, priors_sum);
+        }
+        else{
+            game_data_t *data_ptr = (game_report) ? &data : NULL;
+            solver(data_ptr, prior_compute, pattern_matrix, answer_index, priors_sum);
+        }
+    }
+
+    auto answer_end = std::chrono::high_resolution_clock::now();
+    auto answer_duration = std::chrono::duration_cast<std::chrono::milliseconds>(answer_end - answer_start);
+    time_total = answer_duration.count();
+
+        
+    float average_time = time_total / words.size();
+    std::cout << "Average time taken: " << average_time << " milliseconds per word\n";
+
+
     return 0;
 }
