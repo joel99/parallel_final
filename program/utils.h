@@ -68,9 +68,8 @@ priors_t generate_random_priors(unsigned long size, float &sum,
 */
 
 /**
- * Wordle Game Record Data
+ * Wordle Game Record Data (Depricated)
 */
-
 struct data_entry{
     int guess;               // The index of the guessed word
     unsigned int remaining;  // The number of words remaining

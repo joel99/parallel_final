@@ -151,7 +151,6 @@ std::vector<int> read_test_set_from_file(std::string input_filename, wordlist_t 
     word_t buffer;
     while (getline(file, line)) {
         if(list_index >= word_count) break; // Avoid buffer overflow.
-        // Remove newline characters and add to the list if line is not empty
         if (!line.empty()) {
             str2word(line, buffer);
             out[list_index] = list_query(possible_words, buffer);
@@ -169,7 +168,7 @@ std::vector<int> read_test_set_from_file(std::string input_filename, wordlist_t 
 }
 
 /*******************************
- * Game data Functions
+ * Game data Functions (Depricated)
 ********************************/
 
 
@@ -188,7 +187,6 @@ void advance_round(game_data_t &data, int &guess, coloring_t pattern,
  * Used in verbose mode: Reports the final game statistics
 */
 void report_game(game_data_t &data, wordlist_t &words){
-    
     return;
 }
 

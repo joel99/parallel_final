@@ -10,10 +10,11 @@
 #include <cstring>
 #include <cmath>
 
-#define WORDLEN 8 // Maximum word length
+#define MAXLEN 8 // Word Data Structure Buffer Length.
 #define NUMCOLORS 3 // Number of Board Colors
 #define PTN_DEFAULT 0
-#define CORRECT_GUESS 6560
+
+extern int wordlen; // Maximum length of the word specified by user.
 
 /** Data Structure for a word */
 typedef struct word{
@@ -44,7 +45,7 @@ coloring_t word_cmp(word_t &query, word_t &answer);
  * Convert a cpp string type to the word type
  * @param source The input cpp string
  * @param dest the word_t data type to be written to
- * This function will always truncate the source string to WORDLEN size.
+ * This function will always truncate the source string to "wordlen" size.
 */
 void str2word(std::string &source, word_t &dest);
 
