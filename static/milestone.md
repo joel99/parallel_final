@@ -10,22 +10,22 @@ We began working on this project after our revised proposals are completed, and 
 Our sequential algorithm roughly follows the routines underlined below: (Some edge cases and implementational details omitted) The game loop may be repeated multiple times to evaluate the performance of wordle solver on different words.
 ```
 <Initialization Sequence: Set up word list and prior weights>
-  Precompte the "pattern matrix" containing feedbacks for all guess-answer pairs
-  ** Game Loop Begins **
-  while <game not complete>:
-    **Computation Phase**
-    for guess_word in <word list>:
-        Pool the total weights from word priors for each coloring pattern via **scatter reduce**
-        Compute guess_word's expected entropy I(g) by normalizing the pooled weights into a probability distribution.
-        record guess_word's score as a function of its expected entropy.
-    **Word Selection Phase**
-    candidate_word = argmax(scores)
-    Obtain feedback by submitting candidate_word as guess
-    **Update Phase**
-    for word in <word list>:
-        set word's prior weight to 0 if feedback(candidate_word, word) does not match.
-    compute the sum of all prior weights to be used in the normalization step
-  ** Game Loop Ends **
+    Precompte the "pattern matrix" containing feedbacks for all guess-answer pairs
+    # Game Loop Begins
+    while <game not complete>:
+        # Computation Phase
+        for guess_word in <word list>:
+            Pool the total weights from word priors for each coloring pattern via **scatter reduce**
+            Compute guess_word's expected entropy I(g) by normalizing the pooled weights into a probability distribution.
+            record guess_word's score as a function of its expected entropy.
+        # Candidate Selection Phase
+        candidate_word = argmax(scores)
+        Obtain feedback by submitting candidate_word as guess
+        # Solver Update Phase
+        for word in <word list>:
+            set word's prior weight to 0 if feedback(candidate_word, word) does not match.
+        compute the sum of all prior weights to be used in the normalization step
+    # Game Loop Ends
 ```
 
 
