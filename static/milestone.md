@@ -5,7 +5,7 @@ In this checkpoint report, we will present our current progress on the term proj
 
 ## Current Progress
 
-We began working on this project after our revised proposals are completed, and we have successfully implemented a sequential solver that replicates the majority of the functionalities outlined in [_3Blue1Brows_'s video](https://www.youtube.com/watch?v=v68zYyaEmEA). In addition to providing a fully functional sequential implementation, we have embedded automated testing and timing code into our program to facilitate performance evaluation in parallel implementations.
+We began working on this project after our revised proposals are completed, and we have successfully implemented a sequential solver that replicates the majority of the functionalities outlined in [_3Blue1Brown_'s video](https://www.youtube.com/watch?v=v68zYyaEmEA). In addition to providing a fully functional sequential implementation, we have embedded automated testing and timing code into our program to facilitate performance evaluation in parallel implementations.
 
 Our sequential algorithm roughly follows the routines underlined below: (Some edge cases and implementational details omitted) The game loop may be repeated multiple times to evaluate the performance of wordle solver on different words.
 ```
@@ -28,20 +28,14 @@ Our sequential algorithm roughly follows the routines underlined below: (Some ed
     # Game Loop Ends
 ```
 
+We have also carefully analysed our wordle solver algorithm, and two of the most important operations to be parallelized in our algorithm are **Map Reduce** and **Scatter Reduce**. The reduction algorithm is relatively straight forward to parallelise, and many parallel computing frameworks, such as OpenMP and MPI, provides primitives to efficiently perform reductions. However, the Scatter Reduce method is characterized by frequent memory access indirections and potential write contention in parallel implementations. We have currently proposed 3 potential implementations for parallel scatter reduce: a lock based approach, a reduction based approach and a reformulation of the scatter reduce problem as a sparse matrix vector multiplication problem. Since parallel **Map Reduce** and **Scatter Reduce** are key components of our wordle solver problem, we are interested in writing benchmarks for differen parallel implementations of these functions and include our findings in the final report.
 
+As mentioned in the proposal document, during the computational phase, we could either parallelize over the "guess_word" dimension ("across-word parallelism"), which we believe is better suited for an MPI implementation, or implement "within-word parallelism" via parallel scatter reduce and reduction algorithm. Additionally, due to the high communication-to-computation ratio in our program, we are especially interested in running our algorithm on a GPU to take advantage of the higher mem
 
-
-- What we have learned
-- What we have implemented
-- Different implementational decisions
-- Different levels of parallelism
-- Discuss
-
-In addition to providing a correct sequential implementation that correctly replicates most of the behaviors of the 
-
-However, we also decided modify the overall directive of this project.
+We have also decided modify the overall directive of this project. As mentioned in [_3Blue1Brown_'s addendum to the original video](https://www.youtube.com/watch?v=fRed0Xmc2Wg), most of the algorithmic refinemenets included in his version 2 solver are aimed at reducing the average rounds required for a correct guess. However, since we are mostly interested in improving and measuring the parallel performance of the wordle solver on different machine architectures, it is likely that we will sideline the inclusion of some features of _3Blue1Brown_'s algorithm in our parallel implementations. In the "Updated Project Goals and Schedules" section, we have modified our objectives to reflect this change of project directive.
 
 ## Preliminary Testing Results
+TODO
 
 ## Concerns and Unknowns
 Our current progress mostly aligns with our initial expectations and it is likely that we will be able to complete all the "plan to achieve" deliverable items. However, due to the delays experienced in the project proposal phase, it is expected for us to perform most of the parallel program developmental work in the following two weeks.
