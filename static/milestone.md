@@ -1,28 +1,33 @@
 # Project Checkpoint Report
-Final project for 15418/618. Songyu Han and Joel Ye
-
 [Project Page](https://joel99.github.io/parallel_final/)
 
+In this checkpoint report, we will present our current progress on the term project as well as some new discoveries we have realized as we were working on our current implementations. We will also discuss potential updates in our project schedule in this report.
+
+## Current Progress
 
 
-## Work has done so far
 - What we have learned
 - What we have implemented
 - Different implementational decisions
 - Different levels of parallelism
-- Discuss 
-- 
+- Discuss
 
+In addition to providing a correct sequential implementation that correctly replicates most of the behaviors of the 
+
+However, we also decided modify the overall directive of this project.
+
+## Preliminary Testing Results
 
 ## Concerns and Unknowns
+Our current progress mostly aligns with our initial expectations and it is likely that we will be able to complete all the "plan to achieve" deliverable items. However, due to the delays experienced in the project proposal phase, it is expected for us to perform most of the parallel program developmental work in the following two weeks.
+
 
 ## Updated Project Schedules
 - 4/12:
   - 🔴 Provide a serial CPU C++ and pytorch (python with C++ bindings)     implementation of the V1 algorithm. (Completed)
-  - 🔴 Analyze the sequential implementation and determine multiple parallel appraoches to the Wordle solver. (Completed)
+  - 🔴 Analyze sequential algorithm and determine multiple parallel appraoches to the Wordle solver. (Completed)
   - 🔵 Add naive OpenMP parallelism on guess and candidate loops. (In Progress)
   - 🔴 Provide test-bank evaluator and profile the two implementations on 5-letter wordle. (Completed)
-  
 - 4/15 (4/16 milestone report)
   - 🔵 Implement and profile guess level and candidate level parallelism while optimizing for memory locality and minimizing scatter reduce contention. (In Progress)
   - ⚫ Evaluate correctness degradation with reduced synchronization on reduction. (Pending)
