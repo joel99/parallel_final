@@ -5,6 +5,31 @@ In this checkpoint report, we will present our current progress on the term proj
 
 ## Current Progress
 
+We began working on this project after our revised proposals are completed, and we have successfully implemented a sequential solver that replicates the majority of the functionalities outlined in [_3Blue1Brows_'s video](https://www.youtube.com/watch?v=v68zYyaEmEA). In addition to providing a fully functional sequential implementation, we have embedded automated testing and timing code into our program to facilitate performance evaluation in parallel implementations.
+
+Our sequential algorithm roughly follows the routines underlined below: (Some edge cases and implementational details omitted) The game loop may be repeated multiple times to evaluate the performance of wordle solver on different words.
+```
+<Initialization Sequence: Set up word list and prior weights>
+  Precompte the "pattern matrix" containing feedbacks for all guess-answer pairs
+  ** Game Loop Begins **
+  while <game not complete>:
+    **Computation Phase**
+    for guess_word in <word list>:
+        Pool the total weights from word priors for each coloring pattern via **scatter reduce**
+        Compute guess_word's expected entropy I(g) by normalizing the pooled weights into a probability distribution.
+        record guess_word's score as a function of its expected entropy.
+    **Word Selection Phase**
+    candidate_word = argmax(scores)
+    Obtain feedback by submitting candidate_word as guess
+    **Update Phase**
+    for word in <word list>:
+        set word's prior weight to 0 if feedback(candidate_word, word) does not match.
+    compute the sum of all prior weights to be used in the normalization step
+  ** Game Loop Ends **
+```
+
+
+
 
 - What we have learned
 - What we have implemented
@@ -22,7 +47,9 @@ However, we also decided modify the overall directive of this project.
 Our current progress mostly aligns with our initial expectations and it is likely that we will be able to complete all the "plan to achieve" deliverable items. However, due to the delays experienced in the project proposal phase, it is expected for us to perform most of the parallel program developmental work in the following two weeks.
 
 
-## Updated Project Schedules
+
+
+## Updated Project Goals and Schedules
 - 4/12:
   - 🔴 Provide a serial CPU C++ and pytorch (python with C++ bindings)     implementation of the V1 algorithm. (Completed)
   - 🔴 Analyze sequential algorithm and determine multiple parallel appraoches to the Wordle solver. (Completed)
