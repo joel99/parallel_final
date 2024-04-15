@@ -18,7 +18,7 @@ Final project for 15418/618. Songyu Han and Joel Ye
 
 ## Updated Project Schedules
 - 4/12:
-  🔴 Provide a serial CPU C++ and pytorch (python with C++ bindings) implementation of the V1 algorithm. (Completed)
+  🔴 Provide a serial CPU C++ and pytorch (python with C++ bindings) implementation of the V1 algorithm. (Completed) \\
   🔵 Add naive OpenMP parallelism on guess and candidate loops. (In Progress)
   🔴 Provide test-bank evaluator and profile the two implementations on 5-letter wordle. (Completed)
 - 4/15 (4/16 milestone report)
