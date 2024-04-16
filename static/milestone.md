@@ -28,39 +28,48 @@ Our sequential algorithm roughly follows the routines underlined below: (Some ed
     # Game Loop Ends
 ```
 
-We have also carefully analysed our wordle solver algorithm, and two of the most important operations to be parallelized in our algorithm are **Map Reduce** and **Scatter Reduce**. The reduction algorithm is relatively straight forward to parallelise, and many parallel computing frameworks, such as OpenMP and MPI, provides primitives to efficiently perform reductions. However, the Scatter Reduce method is characterized by frequent memory access indirections and potential write contention in parallel implementations. We have currently proposed 3 potential implementations for parallel scatter reduce: a lock based approach, a reduction based approach and a reformulation of the scatter reduce problem as a sparse matrix vector multiplication problem. Since parallel **Map Reduce** and **Scatter Reduce** are key components of our wordle solver problem, we are interested in writing benchmarks for differen parallel implementations of these functions and include our findings in the final report.
+We have also carefully analysed our wordle solver algorithm, and two of the most important operations to be parallelized in our algorithm are **Map Reduce** and **Scatter Reduce**. The reduction algorithm is relatively straight forward to parallelise, and many parallel computing frameworks, such as OpenMP and MPI, provides primitives to efficiently perform reductions. However, the Scatter Reduce method is characterized by write contention and memory access indirections, which makes it very tricky to parallelize. We have proposed 3 potential approaches to parallel scatter reduce to be experimented with: a lock based approach, a reduction based approach and a reformulation of the scatter reduce problem as a sparse matrix vector multiplication problem. We shall further evaluate the effectiveness of each approach by running each scatter reduce implementation on very large matrices and vectors.
 
-As mentioned in the proposal document, during the computational phase, we could either parallelize over the "guess_word" dimension ("across-word parallelism"), which we believe is better suited for an MPI implementation, or implement "within-word parallelism" via parallel scatter reduce and reduction algorithm. Additionally, due to the high communication-to-computation ratio in our program, we are especially interested in running our algorithm on a GPU to take advantage of the higher mem
+As mentioned in the proposal document, during the computational phase, we could either parallelize over the "guess_word" dimension ("across-word parallelism"), which we believe is the natural approach to parallelize our solver, or experiment with "within-word parallelism" by incorporating our parallel scatter reduce. We are also interested in incorporating SIMD to further enhance the performance of our CMU solver. In the following weeks, we are also interested in completing a CUDA implementation of our wordle solver. Although the pattern matrix pre-computation phase is massively data parallel, there will be challenges in our actual solver loop routine, as CUDA does not have natural reduction primitives and has very limited synchronization constructs. This forces us to reconsider our current scatter reduce and map reduce implementations.
 
-We have also decided modify the overall directive of this project. As mentioned in [_3Blue1Brown_'s addendum to the original video](https://www.youtube.com/watch?v=fRed0Xmc2Wg), most of the algorithmic refinemenets included in his version 2 solver are aimed at reducing the average rounds required for a correct guess. However, since we are mostly interested in improving and measuring the parallel performance of the wordle solver on different machine architectures, it is likely that we will sideline the inclusion of some features of _3Blue1Brown_'s algorithm in our parallel implementations. In the "Updated Project Goals and Schedules" section, we have modified our objectives to reflect this change of project directive.
+We have also decided modify the overall directive of this project. As mentioned in [_3Blue1Brown_'s addendum to their wordle video](https://www.youtube.com/watch?v=fRed0Xmc2Wg), most of the algorithmic refinemenets included in his version 2 solver are aimed at reducing the average rounds required for a correct guess. However, since we are mostly interested in improving and measuring the parallel performance of the wordle solver on different machine architectures, it is likely that we will sideline the inclusion of some features of _3Blue1Brown_'s algorithm in our parallel implementations. In the "Updated Project Goals and Schedules" section, we have modified our objectives to reflect this change of project directive.
+
+## Deliverable at Poster Session
 
 ## Preliminary Testing Results
 TODO
 
 ## Concerns and Unknowns
-Our current progress mostly aligns with our initial expectations and it is likely that we will be able to complete all the "plan to achieve" deliverable items. However, due to the delays experienced in the project proposal phase, it is expected for us to perform most of the parallel program developmental work in the following two weeks.
+
+Our current progress mostly aligns with our initial expectations and it is likely that we will be able to complete all the "plan to achieve" deliverable items. However, due to the delays in the project proposal phase, it is expected for us to perform most of the parallel developmental work in the next two weeks and spend the last week conducting parallel program experimentations.
+
+One preliminary result item worth mentioning is that we are somewhat underwhelmed by the performance of parallel scatter reduce. On one of the team member's computer (Macbook Pro 16 inch, 8 Core i9-9880H CPU), all of our current parallel scatter reduce implementations perform significantly wrose than our sequential baseline on the typical input sizes used in the wordle solver (10 to 20 thousand input items, and an output dimension of 243), and the performance gain due to parallelism on very large data sets is also very limited. We propose improving the locality of memory access by sorting the input arrays, but we are especially concerned as sorting is a task that requires more work and memory writies than the scatter reduce operation itself.
 
 
 
 
 ## Updated Project Goals and Schedules
-- 4/12:
-  - 🔴 Provide a serial CPU C++ and pytorch (python with C++ bindings)     implementation of the V1 algorithm. (Completed)
-  - 🔴 Analyze sequential algorithm and determine multiple parallel appraoches to the Wordle solver. (Completed)
-  - 🔴 Add naive OpenMP parallelism on guess and candidate loops. (Completed)
-  - 🔴 Provide test-bank evaluator and profile the two implementations on 5-letter wordle. (Completed)
-- 4/15 (4/16 milestone report)
-  - 🔵 Implement and profile guess level and candidate level parallelism while optimizing for memory locality and minimizing scatter reduce contention. (In Progress)
-  - ⚫ Evaluate correctness degradation with reduced synchronization on reduction. (Pending)
-  - 🟢 Evaluate performance characteristics with multiple implementations of scatter reduce and map reduce (New Task, In Progress)
-  - ⚫ Implement message-passing solver with MPI (Pending)  
-- 4/22
-  - ⚫ Experiment with coloring matrix partitioning or on the fly coloring computation (all in OpenMP). (Pending)
-  - ⚫ Profile and optimize workload balancing across turns. (Pending)
-  - 🔵 Scale problem size in number of letters (up to 7) (In Progress)
-  - ⚫ Implement and optimize GPU implementation of the wordle solver in CUDA (Pending)
-- 4/29
-  - ⚫ Hope to Achieve: extend problem size in number of boards to solve. (Pending)
-  - 🟢 Perform problem size sensitivity analysis (New Task, Pending)  
-- 5/5  
-  ⚫ Writing up report and preparing poster. (Pending)
+- Week 4/12:
+  - 🔴 Provide a serial CPU C++ and pytorch (python with C++ bindings) implementation of the V1 algorithm. (Completed, SH & JY)
+  - 🔴 Analyze sequential algorithm and determine multiple parallel appraoches to the Wordle solver. (Completed, SH & JY)
+  - 🔴 Add naive OpenMP parallelism on guess and candidate loops. (Completed, SH)
+  - 🔴 Provide test-bank evaluator and profile the two implementations on 5-letter wordle. (Completed, SH & JY)
+- Week 4/15 (First Half):
+  - 🔵 Implement and profile guess level and candidate level parallelism while optimizing for memory locality and minimizing scatter reduce contention. (In Progress, SH & JY)
+  - 🟢 Evaluate performance characteristics of various implementations of scatter reduce and map reduce. (New Task, In Progress, SH)
+- Week 4/15 (Second Half):
+  - ⚫ Evaluate correctness degradation with reduced synchronization on reduction. (Pending, JY)
+  - ⚫ Implement message-passing solver with MPI (Pending, SH & JY)
+  - ⚫ Start to implement GPU solver in CUDA (Pending, SH & JY)
+- Week 4/22 (First Half):
+  - 🔵 Experiment with coloring matrix partitioning or on the fly coloring computation (all in OpenMP). (In Progress, JY)
+  - ⚫ Profile and optimize workload balancing across turns. (Pending, SH & JY)
+- Week 4/22 (Second Half):
+  - ⚫ Continue Optimizing the CUDA Solver (Pending, SH)
+  - 🔵 Scale problem size in number of letters (up to 7) (In Progress, JY)
+- Week 4/29 (First Half):
+  - ⚫ Profile and analyze performance characteristics of GPU solver (Pending, SH & JY)
+  - 🟢 Perform problem size sensitivity analysis (New Task, Pending, SH)
+  - ⚫ Hope to Achieve: extend problem size in number of boards to solve. (Pending, SH & JY)
+- Week 4/29 (Second Half): 
+  ⚫ Writing up report and preparing poster. (Pending, SH & JY)
