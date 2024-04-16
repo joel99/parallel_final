@@ -10,6 +10,8 @@
 #include <chrono>
 #include <unistd.h>
 
+#include <omp.h>
+
 // Global Parameter: Maximum word length in use
 int wordlen = MAXLEN;
 
@@ -49,8 +51,10 @@ int arg_min(std::vector<T, A> const& vec) {
 void compute_patterns(std::vector<std::vector<coloring_t>> &pattern_matrix,
                       wordlist_t &words){
     int num_words = words.size();
+    #pragma omp parallel for schedule(dynamic)
     for(int query_idx = 0; query_idx < num_words; query_idx++){
         word_t query = words[query_idx];
+        #pragma omp simd
         for (int candidate_idx = 0; candidate_idx < num_words; candidate_idx++){
             pattern_matrix[query_idx][candidate_idx] = 
                 word_cmp(query, words[candidate_idx]);
@@ -100,6 +104,7 @@ void solver_verbose(wordlist_t &words,
         }
         else{ // More than 2 words: Compute the entropy for ALL words
             auto compute_start = timestamp;
+            #pragma omp parallel for schedule(dynamic) private(probability_scratch)
             for(int word_idx = 0; word_idx < num_words; word_idx++){
                 probability_scratch.assign(num_patterns, 0.0f);
                 // Pool up the total word weights for each pattern
@@ -180,7 +185,7 @@ void solver(priors_t &priors,
     int guess; // The index to the guessed word
     coloring_t feedback;
     // Computes the initial uncertainty measure
-    float uncertainty = entropy_compute(priors, prior_sum);
+    // float uncertainty = entropy_compute(priors, prior_sum);
 
     for(int k = 0; k < 10; k ++){
         /******************** Entropy Computation Phase **********************/
@@ -189,6 +194,7 @@ void solver(priors_t &priors,
             guess = arg_max(priors);
         }
         else{ // More than 2 words: Compute the entropy for ALL words
+            #pragma omp parallel for schedule(dynamic) private(probability_scratch)
             for(int word_idx = 0; word_idx < num_words; word_idx++){
                 probability_scratch.assign(num_patterns, 0.0f);
                 // Pool up the total word weights for each pattern
@@ -218,7 +224,7 @@ void solver(priors_t &priors,
             }
         }
         // Compute the new uncertainty measure after a guess
-        uncertainty = entropy_compute(priors, prior_sum);
+        // uncertainty = entropy_compute(priors, prior_sum);
     }
 }
 
@@ -271,7 +277,8 @@ int main(int argc, char **argv) {
         std::cerr << "Invalid Wordlen Parameter [" << wordlen << "]\n";
         exit(1);
     }
-
+    
+    omp_set_num_threads(num_threads);
 
     // Initializing word list
     wordlist_t words = read_words_from_file(text_filename);
