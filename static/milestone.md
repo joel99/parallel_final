@@ -47,7 +47,7 @@ Our current progress mostly aligns with our initial expectations and it is likel
 - 4/12:
   - 🔴 Provide a serial CPU C++ and pytorch (python with C++ bindings)     implementation of the V1 algorithm. (Completed)
   - 🔴 Analyze sequential algorithm and determine multiple parallel appraoches to the Wordle solver. (Completed)
-  - 🔵 Add naive OpenMP parallelism on guess and candidate loops. (In Progress)
+  - 🔴 Add naive OpenMP parallelism on guess and candidate loops. (Completed)
   - 🔴 Provide test-bank evaluator and profile the two implementations on 5-letter wordle. (Completed)
 - 4/15 (4/16 milestone report)
   - 🔵 Implement and profile guess level and candidate level parallelism while optimizing for memory locality and minimizing scatter reduce contention. (In Progress)
