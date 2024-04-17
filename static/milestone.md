@@ -1,7 +1,7 @@
 # Project Checkpoint Report
 [Project Page](https://joel99.github.io/parallel_final/)
 
-In this checkpoint report, we will present our current progress on the term project as well as some new discoveries we have realized as we were working on our current implementations. We will also discuss potential updates in our project schedule in this report.
+In this checkpoint report, we will present our current progress on the term project as well as some new discoveries since our project proposals.
 
 ## Current Progress
 
