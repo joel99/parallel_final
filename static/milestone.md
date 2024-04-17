@@ -47,8 +47,13 @@ We plan on showcasing the following items during the poster session:
 
 ## Preliminary Testing Results
 
-The following preliminary results are obtained on Songyu Han's personal computer. (CPU: 8 Core i9-9880H @ 2.3GHz)
-TODO
+The following preliminary results are obtained on Songyu Han's personal computer. (CPU: 8 Core i9-9880H @ 2.3GHz, hyperthreading enabled) Performance is tested using a small 10-word test set.
+| Sub Routine (Time: ms) |  Serial  | 2 Threads | 4 Threads | 8 Threads | 16 Threads |
+| ---------------------: | :------: | :-------: | :-------: | :-------: | :--------: |
+| Program Initialization | 149.27   | 135.41 | 135.30 | 141.46 | 130.43 |
+| Coloring Matrix        | 6750.3   | 3530.2 | 1898.1 | 911.63 | 837.75 |
+| Word Selection (avg)   | 807.04   | 415.74 | 227.25 | 117.72 | 91.62  |
+
 
 ## Concerns and Unknowns
 
