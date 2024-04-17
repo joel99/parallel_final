@@ -8,7 +8,7 @@ Final project for 15418/618. Songyu Han and Joel Ye
 ## Links
 - [Proposal](static/proposal.md)
 - [Proposal Revised](static/proposal_revised.md)
-- Midway (TODO)
+- [Checkpoint Report](static/milestone.md)
 - Final (TODO)
 
 ---
