@@ -47,19 +47,23 @@ We plan on showcasing the following items during the poster session:
 
 ## Preliminary Testing Results
 
-The following preliminary results are obtained on Songyu Han's personal computer. (CPU: 8 Core i9-9880H @ 2.3GHz, hyperthreading enabled) Performance is tested using a small 10-word test set.
+The following preliminary results are obtained on Songyu Han's personal computer. (CPU: 8 Core i9-9880H @ 2.3GHz, hyperthreading enabled) 
+
+This is an evaluation of our across-candidate OpenMP parallel approach. Performance is evaluated using the full wordle word bank (12953 words) and a 10-word test set. 
+
 | Sub Routine (Time: ms) |  Serial  | 2 Threads | 4 Threads | 8 Threads | 16 Threads |
 | ---------------------: | :------: | :-------: | :-------: | :-------: | :--------: |
 | Program Initialization | 149.27   | 135.41 | 135.30 | 141.46 | 130.43 |
 | Coloring Matrix        | 6750.3   | 3530.2 | 1898.1 | 911.63 | 837.75 |
-| Word Selection (avg)   | 807.04   | 415.74 | 227.25 | 117.72 | 91.62  |
+| avg. Time per Game     | 807.04   | 415.74 | 227.25 | 117.72 | 91.62  |
 
+Performance statistics of our MPI implementation as well as variations of our OpenMP approaches will be included in the final report. Additionally, although our implementation scales rather well on this particular machine, we are curious if a GPU implementation would take advantage of the massive data parallel capabilities and higher memory bandwidth.
 
 ## Concerns and Unknowns
 
 Our current progress mostly aligns with our initial expectations and it is likely that we will be able to complete all the "plan to achieve" deliverable items. However, due to the delays in the project proposal phase, it is expected for us to perform most of the parallel developmental work in the next two weeks and spend the last week conducting parallel program experimentations.
 
-One preliminary result item worth mentioning is that we are somewhat underwhelmed by the performance of parallel scatter reduce. On one of the team member's computer (Macbook Pro 16 inch, 8 Core i9-9880H CPU), all of our current parallel scatter reduce implementations perform significantly wrose than our sequential baseline on the typical input sizes used in the wordle solver (10 to 20 thousand input items, and an output dimension of 243), and the performance gain due to parallelism on very large data sets is also very limited. We propose improving the locality of memory access by sorting the input arrays, but we are especially concerned as sorting is a task that requires more work and memory writies than the scatter reduce operation itself.
+One item worth mentioning is that we are somewhat underwhelmed by the performance of parallel scatter reduce. On one of the team member's personal computer (Macbook Pro 16 inch, 8 Core i9-9880H CPU), all of our current parallel scatter reduce implementations perform significantly wrose than our sequential baseline on the typical input sizes used in the wordle solver (10 to 20 thousand input items, and an output dimension of 243), and the performance gain due to parallelism on very large data sets is also very limited. We propose improving the locality of memory access by sorting the input arrays, but we are especially concerned as sorting is a task that requires more work and memory writies than the scatter reduce operation itself.
 
 
 
