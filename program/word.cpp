@@ -18,40 +18,48 @@ bool is_correct_guess(coloring_t c){
 }
 
 coloring_t word_cmp(word_t &query, word_t &answer){
-    // Indicator array, prevent matching the same letter twice. Init'd to false
-    bool query_matched[MAXLEN] = { 0 }; // Allocate enough space.
-    bool answer_matched[MAXLEN] = { 0 };
+    // Optimized with some 15-213 data lab magic
+    int query_matched = 0x0;
+    int mask = 0x1;
 
     coloring_t out = 0;
     coloring_t mult = 1;
     // Check for green boxes first
     for(int i = 0; i < wordlen; i++){
+        // printf("%x, %x\n", mask, query_matched);
         if(query.text[i] == answer.text[i]){
             out += (2 * mult);
-            query_matched[i] = true;
-            answer_matched[i] = true;
+            query_matched |= mask;
         }
+        mask <<= 1;
         mult *= NUMCOLORS;
     }
 
-    // reset multiplier
+    // reset multiplier and mask
+    mask = 0x1;
     mult = 1;
+    // Add a new lane mask indicating if answer is matched
+    int answer_matched = query_matched;
     // Check for yellow boxes
     for(int i = 0; i < wordlen; i++){ // query index
-        if(query_matched[i]) {
+        if(query_matched & mask) {
             mult *= NUMCOLORS;
+            mask <<= 1;
             continue;
         }
+        int answer_mask = 0x1;
         for(int j = 0; j < wordlen; j++){// answer index
-            if(i == j || answer_matched[j]) continue;
-            if(query.text[i] == answer.text[j]){
+            // printf("%x, %x, %x\n", answer_mask, answer_matched, answer_matched & answer_mask);
+            if(!(answer_matched & answer_mask) && query.text[i] == answer.text[j]){
                 out += mult;
-                query_matched[i] = true;
-                answer_matched[j] = true;
+                query_matched |= mask;
+                answer_matched |= answer_mask;
                 break;
             }
+            answer_mask <<= 1;
         }
         mult *= NUMCOLORS;
+        mask <<= 1;
     }
     return out;
 }

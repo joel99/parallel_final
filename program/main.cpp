@@ -113,7 +113,7 @@ void solver_verbose(wordlist_t &words,
                 // Normalize the pooled weights into a probability distribution
                 // Compute the entropy via map reduce
                 entropys[word_idx] = entropy_compute(probability_scratch, 
-                    prior_sum);
+                    prior_sum)+ (priors[word_idx] / prior_sum);
             }
             auto compute_end = timestamp;
             // Find the word that maximizes the expected entropy entropy.
@@ -201,9 +201,9 @@ void solver(priors_t &priors,
                 scatter_reduce(pattern_matrix[word_idx], priors,
                     probability_scratch);
                 // Normalize the pooled weights into a probability distribution
-                // Compute the entropy via map reduce
+                // Compute the entropy via map reduce, add the prior probability
                 entropys[word_idx] = entropy_compute(probability_scratch, 
-                    prior_sum);
+                    prior_sum) + (priors[word_idx] / prior_sum);
             }
             // Find the word that maximizes the expected entropy entropy.
             guess = arg_max(entropys);
@@ -215,6 +215,7 @@ void solver(priors_t &priors,
         /******************** Update Phase **********************/
         words_remaining = 0;
         prior_sum = 0.0f;
+        #pragma omp parallel for schedule(dynamic, 64) reduction(+:words_remaining) reduction(+:prior_sum)
         for(int i = 0; i < num_words; i++){
             if(is_zero(priors[i])) continue; // prior == 0 for invalid
             if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
@@ -281,7 +282,8 @@ int main(int argc, char **argv) {
     omp_set_num_threads(num_threads);
 
     // Initializing word list
-    wordlist_t words = read_words_from_file(text_filename);
+    wordlist_t words;
+    if(read_words_from_file(text_filename, words)) exit(1);
     // Initialize prior weights
     priors_t priors;
     float priors_sum; // The sum of all prior weights.
@@ -293,7 +295,7 @@ int main(int argc, char **argv) {
             priors = generate_uniform_priors(words.size(), priors_sum);
         }
     else{
-        priors = read_priors_from_file(prior_filename, priors_sum);
+        if(read_priors_from_file(prior_filename, priors_sum, priors)) exit(1);
         if(priors.size() != words.size()){  // Check if size match:
             std::cerr << "Input Files Length Mismatch!\n";
             exit(1);
@@ -305,7 +307,7 @@ int main(int argc, char **argv) {
     std::string linebuf;
     word_t buffer;
     if(!empty(test_filename)){ // Read test set from file
-        test_set = read_test_set_from_file(test_filename, words);
+        if(read_test_set_from_file(test_filename, words, test_set)) exit(1);
     }
     else{
         test_set.resize(1);
@@ -337,7 +339,7 @@ int main(int argc, char **argv) {
     compute_patterns(pattern_matrix, words);
     auto precompute_end = timestamp;
 
-    std::cout << "Initialization: " << TIME(precompute_start, precompute_end) << "\n";
+    std::cout << "Pre-processing: " << TIME(precompute_start, precompute_end) << "\n";
     // Benchmark all words in the test set.
     double time_total;
     int answer_index;

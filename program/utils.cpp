@@ -13,11 +13,11 @@ int list_query(wordlist_t &list, word_t& word){
  * File I/O Functions
 ********************************/
 
-wordlist_t read_words_from_file(std::string input_filename){
+int read_words_from_file(std::string input_filename, wordlist_t &out){
     std::ifstream file(input_filename);
     if(!file.is_open()){
         std::cerr << "Unable to open file: " << input_filename << " .\n";
-        exit(1);
+        return 1;
     }
     std::string line;
 
@@ -27,7 +27,7 @@ wordlist_t read_words_from_file(std::string input_filename){
     if(line.empty()){
         std::cerr << "Unsupported File Format: " << input_filename 
             << " [Err: Word Count]\n";
-        exit(1);
+        return 1;
     }
     // Attempt to read the word_count parameter.
     try{
@@ -36,10 +36,10 @@ wordlist_t read_words_from_file(std::string input_filename){
     catch(const std::exception& e){
         std::cerr << "Unsupported File Format: " << input_filename
              << " [Err: Word Count]\n";
-        exit(1);
+        return 1;
     }
 
-    wordlist_t out(word_count);
+    out.resize(word_count);
     while (getline(file, line)) {
         if(word_index >= word_count) break; // Avoid buffer overflow.
         // Remove newline characters and add to the list if line is not empty
@@ -49,15 +49,15 @@ wordlist_t read_words_from_file(std::string input_filename){
         }
     }
     file.close();
-    return out;
+    return 0;
 }
 
 
-priors_t read_priors_from_file(std::string input_filename, float &sum){
+int read_priors_from_file(std::string input_filename, float &sum, priors_t &out){
     std::ifstream file(input_filename);
     if(!file.is_open()){
         std::cerr << "Unable to open file: " << input_filename << " .\n";
-        exit(1);
+        return 1;
     }
     std::string line;
 
@@ -67,7 +67,7 @@ priors_t read_priors_from_file(std::string input_filename, float &sum){
     if(line.empty()){
         std::cerr << "Unsupported File Format: " << input_filename 
             << " [Err: Prior Count]\n";
-        exit(1);
+        return 1;
     }
     // Attempt to read the word_count parameter.
     try{
@@ -76,9 +76,9 @@ priors_t read_priors_from_file(std::string input_filename, float &sum){
     catch(const std::exception& e){
         std::cerr << "Unsupported File Format: " << input_filename
              << " [Err: Prior Count]\n";
-        exit(1);
+        return 1;
     }
-    priors_t out(count);
+    out.resize(count);
     sum = 0.0f;
     float temp;
     while (getline(file, line)) {
@@ -91,7 +91,7 @@ priors_t read_priors_from_file(std::string input_filename, float &sum){
             catch(const std::exception& e){
                 std::cerr << "Unsupported File Format: " << input_filename
                     << " [Err: Invalid Prior]\n";
-                 exit(1);
+                return 1;
             }
             out[index] = temp;
             sum += temp;
@@ -99,7 +99,7 @@ priors_t read_priors_from_file(std::string input_filename, float &sum){
         }
     }
     file.close();
-    return out;
+    return 1;
 }
 
 priors_t generate_uniform_priors(unsigned long size, float &sum){
@@ -121,11 +121,11 @@ priors_t generate_random_priors(unsigned long size, float &sum,
     return out;
 }
 
-std::vector<int> read_test_set_from_file(std::string input_filename, wordlist_t possible_words){
+int read_test_set_from_file(std::string input_filename, wordlist_t possible_words, std::vector<int> &out){
     std::ifstream file(input_filename);
     if(!file.is_open()){
         std::cerr << "Unable to open file: " << input_filename << " .\n";
-        exit(1);
+        return 1;
     }
     std::string line;
 
@@ -134,7 +134,7 @@ std::vector<int> read_test_set_from_file(std::string input_filename, wordlist_t 
     if(line.empty()){
         std::cerr << "Unsupported File Format: " << input_filename 
             << " [Err: Word Count]\n";
-        exit(1);
+        return 1;
     }
     // Attempt to read the word_count parameter.
     try{
@@ -143,10 +143,10 @@ std::vector<int> read_test_set_from_file(std::string input_filename, wordlist_t 
     catch(const std::exception& e){
         std::cerr << "Unsupported File Format: " << input_filename
              << " [Err: Word Count]\n";
-        exit(1);
+        return 1;
     }
 
-    std::vector<int> out(word_count);
+    out.resize(word_count);
     unsigned long list_index = 0;
     word_t buffer;
     while (getline(file, line)) {
@@ -158,13 +158,13 @@ std::vector<int> read_test_set_from_file(std::string input_filename, wordlist_t 
                 // Safety Check: Check if the test set contains illegal words
                 std::cerr << "Test Set " << input_filename << " contains illegal word ";
                 word_print(buffer);
-                exit(1);
+                return 1;
             }
             list_index ++;
         }
     }
     file.close();
-    return out;
+    return 0;
 }
 
 /*******************************

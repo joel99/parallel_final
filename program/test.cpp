@@ -6,6 +6,9 @@
 #include <string>
 #include "word.h"
 
+#define WORDLEN 8
+int wordlen = 8;
+
 int main(int argc, char **argv){
     std::string query_buf;
     std::string answer_buf;
@@ -36,6 +39,6 @@ int main(int argc, char **argv){
     }
 
     coloring_t result = word_cmp(query, answer);
-    // color_check(result, query, answer);
+    word_print(query, result);
     return 0;
 }

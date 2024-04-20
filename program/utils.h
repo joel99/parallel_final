@@ -20,7 +20,6 @@ typedef std::vector<word_t> wordlist_t;
 // The prior probabilities associated with the list of words
 typedef std::vector<float> priors_t;
 
-
 /**
  * Determine the wordlist index of a given word
  * @param list
@@ -31,20 +30,27 @@ int list_query(wordlist_t &list, word_t& word);
 
 /** 
  * I/O function for word list. See "utils.h" file for file formatting requirements.
+ * @param out output destination
+ * @returns 0 on success, non-zero on failure
 */
-wordlist_t read_words_from_file(std::string input_filename);
+int read_words_from_file(std::string input_filename, wordlist_t &out);
 
 /**
  * I/O function for test set. Must read the list of possible words first.
  * (The test set is the vector of indices of answer words)
+ * @param out output destination
+ * @returns 0 on success, non-zero on failure
 */
-std::vector<int> read_test_set_from_file(std::string input_filename, wordlist_t possible_words);
+int read_test_set_from_file(std::string input_filename, 
+    wordlist_t possible_words, std::vector<int> & out);
 
 /**
  * I/O function for prior list. See "utils.h" file for file formatting requirements.
  * @param sum returns the sum of all priors
+ * @param out output destination
+ * @returns 0 on success, non-zero on failure
 */
-priors_t read_priors_from_file(std::string input_filename, float &sum);
+int read_priors_from_file(std::string input_filename, float &sum, priors_t &out);
 
 /**
  * Generate a uniform prior if prior file is not provided.
