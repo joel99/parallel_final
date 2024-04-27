@@ -12,6 +12,8 @@
 
 #include <omp.h>
 
+#define MAXITERS 10
+
 // Global Parameter: Maximum word length in use
 int wordlen = MAXLEN;
 
@@ -24,7 +26,7 @@ unsigned long ceil_xdivy(unsigned long X, unsigned long Y){
 }
 
 void usage(char *exec_name){
-    std::cout << "Usage:\n" << exec_name << "-f <word list> -n <thread count> [-p <prior weights> -t <test list> -m <maximum word length> -r -v] \n";
+    std::cout << "Usage:\n" << exec_name << " -f <word list> -n <thread count> [-p <prior weights> -t <test list> -m <maximum word length> -r -v] \n";
     std::cout << "-v: verbose mode\n-r: use randomized priors";
     std::cout << "-m: specifies the maximum word length. Must be in between 1 and 8 (default)";
     std::cout << "The test list must contain words in the word list\n";
@@ -71,7 +73,7 @@ void compute_patterns(std::vector<std::vector<coloring_t>> &pattern_matrix,
  * @param answer - The WORD INDEX of the correct word.
  * @warning This function destructively modifies the priors vector.
 */
-void solver_verbose(wordlist_t &words,
+int_fast64_t solver_verbose(wordlist_t &words,
             priors_t &priors,
             std::vector<std::vector<coloring_t>> &pattern_matrix,
             int &answer,
@@ -92,8 +94,9 @@ void solver_verbose(wordlist_t &words,
     std::cout << "Initial Uncertainty: " << uncertainty << "\n";
     bool random_select;
 
+    int iters = 0;
 
-    for(int k = 0; k < 10; k ++){
+    while(iters < MAXITERS){
         /******************** Entropy Computation Phase **********************/
         std::cout<<"==========================================================\n";
         random_select = false;
@@ -154,8 +157,11 @@ void solver_verbose(wordlist_t &words,
             if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
         }
         std::cout << "\n";
-        if(is_correct_guess(feedback)) break;
+
+        iters ++;
+        if(is_correct_guess(feedback)) return iters;
     }
+    return iters;
 }
 
 
@@ -170,7 +176,7 @@ void solver_verbose(wordlist_t &words,
  * @param answer - The WORD INDEX of the correct word.
  * @warning This function destructively modifies the priors vector.
 */
-void solver(priors_t &priors,
+int solver(priors_t &priors,
             std::vector<std::vector<coloring_t>> &pattern_matrix,
             int &answer,
             float prior_sum){
@@ -187,7 +193,9 @@ void solver(priors_t &priors,
     // Computes the initial uncertainty measure
     // float uncertainty = entropy_compute(priors, prior_sum);
 
-    for(int k = 0; k < 10; k ++){
+    int iters = 0;
+
+    while(iters < MAXITERS){
         /******************** Entropy Computation Phase **********************/
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
@@ -211,7 +219,7 @@ void solver(priors_t &priors,
 
         // Check for guess feed back.
         feedback = pattern_matrix[guess][answer];
-        if(is_correct_guess(feedback)) break;
+        if(is_correct_guess(feedback)) return iters + 1;
         /******************** Update Phase **********************/
         words_remaining = 0;
         prior_sum = 0.0f;
@@ -224,9 +232,9 @@ void solver(priors_t &priors,
                 prior_sum += priors[i];
             }
         }
-        // Compute the new uncertainty measure after a guess
-        // uncertainty = entropy_compute(priors, prior_sum);
+        iters ++;
     }
+    return iters;
 }
 
 int main(int argc, char **argv) {
@@ -346,17 +354,19 @@ int main(int argc, char **argv) {
     priors_t prior_compute(priors.size()); // Makes a deep copy for each benchmark
 
     auto answer_start = timestamp;
+    int rounds;
     for (int i = 0; i < static_cast<int>(test_set.size()); i ++){
         std::copy(priors.begin(), priors.end(), prior_compute.begin());
         answer_index = test_set[i];
+        std::cout << "Benchmarking word: ";
+            word_print(words[answer_index], 0, ' ');
         if(verbose){
-            std::cout << "Benchmarking word: ";
-            word_print(words[answer_index]);
-            solver_verbose(words, prior_compute, pattern_matrix, answer_index, priors_sum);
+            rounds = solver_verbose(words, prior_compute, pattern_matrix, answer_index, priors_sum);
         }
         else{
-            solver(prior_compute, pattern_matrix, answer_index, priors_sum);
+            rounds = solver(prior_compute, pattern_matrix, answer_index, priors_sum);
         }
+        std::cout << "<" << rounds << ">\n";
     }
 
     auto answer_end = timestamp;

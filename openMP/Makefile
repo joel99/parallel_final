@@ -1,12 +1,12 @@
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -O3
+CXXFLAGS = -std=c++17 -Wall -O3 -fopenmp
 
 # List of source files
 SOURCES = main.cpp mathutils.cpp word.cpp utils.cpp
 # Object files can be deduced from the source files list
 OBJECTS = $(SOURCES:.cpp=.o)
 # The name of the final executable
-EXECUTABLE = wordle
+EXECUTABLE = out
 
 # The first target is the default target, so this will be the one made when just typing "make"
 all: $(EXECUTABLE)

@@ -13,6 +13,8 @@
 // Items Specific to the MPI solver
 #include <mpi.h>
 
+#define MAXITERS 10
+
 typedef struct MPI_program_args{
     size_t wordlist_size;
     size_t testset_size;
@@ -40,10 +42,15 @@ unsigned long ceil_xdivy(unsigned long X, unsigned long Y){
 }
 
 void usage(char *exec_name){
-    std::cout << "Usage:\n" << exec_name << "-f <word list> -n <thread count> [-p <prior weights> -t <test list> -m <maximum word length> -r -v] \n";
+    int pid;
+    MPI_Comm_rank(COMM, &pid);
+    if(pid == 0){
+    std::cout << "Usage:\n" << exec_name << " -f <word list> [-p <prior weights> -t <test list> -m <maximum word length> -r -v] \n";
     std::cout << "-v: verbose mode\n-r: use randomized priors";
     std::cout << "-m: specifies the maximum word length. Must be in between 1 and 8 (default)";
     std::cout << "The test list must contain words in the word list\n";
+    }
+
     return;
 }
 
@@ -146,7 +153,7 @@ void MPI_compute_patterns(std::vector<std::vector<coloring_t>> &pattern_matrix,
  * @param work_end - The end index of a thread's work region
  * @warning This function destructively modifies the priors vector.
 */
-void solver_verbose(wordlist_t &words,
+int solver_verbose(wordlist_t &words,
             priors_t &priors,
             std::vector<std::vector<coloring_t>> &pattern_matrix,
             int &answer,
@@ -183,7 +190,9 @@ void solver_verbose(wordlist_t &words,
 
     MPI_Barrier(COMM);
 
-    for(int k = 0; k < 10; k ++){
+    int iters = 0;
+
+    while(iters < MAXITERS){
         /******************** Entropy Computation Phase **********************/
         if(pid == 0)
             std::cout<<"==========================================================\n";
@@ -314,10 +323,12 @@ void solver_verbose(wordlist_t &words,
             rank ++;
             MPI_Barrier(COMM);
         }
+        iters ++;
 
         // All threads should escape the loop if the guess is correct.
-        if(is_correct_guess(feedback)) break;
+        if(is_correct_guess(feedback)) return iters;
     }
+    return iters;
 }
 
 
@@ -332,7 +343,7 @@ void solver_verbose(wordlist_t &words,
  * @param work_end - The end index of a thread's work region
  * @warning This function destructively modifies the priors vector.
 */
-void solver(priors_t &priors,
+int solver(priors_t &priors,
             std::vector<std::vector<coloring_t>> &pattern_matrix,
             int &answer,
             float prior_sum,
@@ -361,7 +372,9 @@ void solver(priors_t &priors,
 
     coloring_t feedback;
 
-    for(int k = 0; k < 10; k ++){
+    int iters = 0;
+
+    while(iters < MAXITERS){
         random_select = false;
         /******************** Entropy Computation Phase **********************/
         if(words_remaining <= 2){ 
@@ -428,9 +441,11 @@ void solver(priors_t &priors,
         MPI_Bcast((void *) &(priors.front()),
             sizeof(float) * num_words, MPI_BYTE, selection_root, COMM);
 
+        iters ++;
         // All threads should escape the loop if the guess is correct.
-        if(is_correct_guess(feedback)) break;
+        if(is_correct_guess(feedback)) return iters;
     }
+    return iters;
 }
 
 int main(int argc, char **argv) {
@@ -630,20 +645,24 @@ int main(int argc, char **argv) {
     priors_t prior_compute(priors.size());
 
     auto answer_start = timestamp;
+    int rounds;
     for (int i = 0; i < static_cast<int>(test_set.size()); i ++){
         std::copy(priors.begin(), priors.end(), prior_compute.begin());
         answer_index = test_set[i];
         if(pid == 0){
             std::cout << "Benchmarking word: ";
-            word_print(words[answer_index]);
+            word_print(words[answer_index], 0, ' ');
         }
         if(verbose){
-            solver_verbose(words, prior_compute, pattern_matrix, answer_index, priors_sum, work_start, work_end);
+            rounds = solver_verbose(words, prior_compute, pattern_matrix, answer_index, priors_sum, work_start, work_end);
         }
         else{
-            solver(prior_compute, pattern_matrix, answer_index, priors_sum, work_start, work_end);
+            rounds = solver(prior_compute, pattern_matrix, answer_index, priors_sum, work_start, work_end);
         }
         MPI_Barrier(COMM); // A conservative synchronization after each benchmark
+        if(pid == 0){
+            std::cout << "<" << rounds << ">\n" << std::flush;
+        }
     }
 
     auto answer_end = timestamp;
