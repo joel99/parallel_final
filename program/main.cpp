@@ -93,7 +93,7 @@ void solver_verbose(wordlist_t &words,
     bool random_select;
 
 
-    for(int k = 0; k < 10; k ++){
+    for(int k = 0; k < MAXITERS; k ++){
         /******************** Entropy Computation Phase **********************/
         std::cout<<"==========================================================\n";
         random_select = false;
@@ -164,7 +164,7 @@ void solver_verbose(wordlist_t &words,
  * The main solver routine. Eliminated the need to input the word list.
  * The final word answer is coded as a word index in the word list.
  * @param prior - The prior weights of each word. 
- * @param pattern_matrix the coloring pattern matrrx.
+ * @param pattern_matrix the coloring pattern matrix, size guess by candidate answer
  * @param prior_sum - The sum of all prior weights, returned by the function
  *                    that generates the vector of prior weights
  * @param answer - The WORD INDEX of the correct word.
@@ -187,7 +187,7 @@ void solver(priors_t &priors,
     // Computes the initial uncertainty measure
     // float uncertainty = entropy_compute(priors, prior_sum);
 
-    for(int k = 0; k < 10; k ++){
+    for(int k = 0; k < MAXITERS; k ++){
         /******************** Entropy Computation Phase **********************/
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words

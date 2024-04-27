@@ -10,6 +10,7 @@
 #include <cstring>
 #include <cmath>
 
+#define MAXITERS 10
 #define MAXLEN 8 // Word Data Structure Buffer Length.
 #define NUMCOLORS 3 // Number of Board Colors
 #define PTN_DEFAULT 0

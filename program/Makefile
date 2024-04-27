@@ -1,4 +1,4 @@
-CXX = g++
+CXX = g++-13
 CXXFLAGS = -std=c++17 -Wall -O3
 
 # List of source files
@@ -8,13 +8,21 @@ OBJECTS = $(SOURCES:.cpp=.o)
 # The name of the final executable
 EXECUTABLE = wordle
 
-# The first target is the default target, so this will be the one made when just typing "make"
-all: $(EXECUTABLE)
+# Default target for standard make (without arguments)
+all: openmp
+
+# Target for compiling with OpenMP
+openmp: CXXFLAGS += -fopenmp
+openmp: $(EXECUTABLE)
+
+# Target for compiling without OpenMP
+serial: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 # A pattern rule that uses automatic variables:
+# - $
 # - $<: the name of the prerequisite of the rule (a .cpp file in this case)
 # - $@: the name of the target of the rule (the corresponding .o file)
 %.o: %.cpp

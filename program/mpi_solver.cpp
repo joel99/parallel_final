@@ -183,7 +183,7 @@ void solver_verbose(wordlist_t &words,
 
     MPI_Barrier(COMM);
 
-    for(int k = 0; k < 10; k ++){
+    for(int k = 0; k < MAXITERS; k ++){
         /******************** Entropy Computation Phase **********************/
         if(pid == 0)
             std::cout<<"==========================================================\n";
@@ -361,7 +361,7 @@ void solver(priors_t &priors,
 
     coloring_t feedback;
 
-    for(int k = 0; k < 10; k ++){
+    for(int k = 0; k < MAXITERS; k ++){
         random_select = false;
         /******************** Entropy Computation Phase **********************/
         if(words_remaining <= 2){ 
