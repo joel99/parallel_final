@@ -332,7 +332,7 @@ int main(int argc, char **argv) {
 
     // IO Complete
     auto init_end = timestamp;
-        std::cout << "Initialization: " << TIME(init_start, init_end) << "\n";
+        std::cout << "IO Initialization: " << TIME(init_start, init_end) << "\n";
 
     auto precompute_start = timestamp;
     // Precompute the coloring matrix
