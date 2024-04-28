@@ -26,9 +26,10 @@ unsigned long ceil_xdivy(unsigned long X, unsigned long Y){
 }
 
 void usage(char *exec_name){
-    std::cout << "Usage:\n" << exec_name << " -f <word list> -n <thread count> [-p <prior weights> -t <test list> -m <maximum word length> -r -v] \n";
+    std::cout << "Usage:\n" << exec_name << " -f <word list> -n <thread count> [-p <prior weights> -t <test list> -m <maximum word length> -x <parallel mode> -r -v] \n";
     std::cout << "-v: verbose mode\n-r: use randomized priors";
     std::cout << "-m: specifies the maximum word length. Must be in between 1 and 8 (default)";
+    std::cout << "-x: specifies the parallelization strategy. 0 for guess parallel, 1 for candidate parallel";
     std::cout << "The test list must contain words in the word list\n";
     return;
 }
@@ -173,13 +174,16 @@ int_fast64_t solver_verbose(wordlist_t &words,
  * @param pattern_matrix the coloring pattern matrrx.
  * @param prior_sum - The sum of all prior weights, returned by the function
  *                    that generates the vector of prior weights
+ * @param mode - 0 for guess parallel, 1 for candidate parallel
  * @param answer - The WORD INDEX of the correct word.
  * @warning This function destructively modifies the priors vector.
 */
 int solver(priors_t &priors,
             std::vector<std::vector<coloring_t>> &pattern_matrix,
             int &answer,
-            float prior_sum){
+            float prior_sum,
+            int mode
+            ){
     // Initialize Additional Solver Data
     int num_words = pattern_matrix.size();
     int words_remaining = num_words;
@@ -201,7 +205,7 @@ int solver(priors_t &priors,
             // Random guess if there are no more than 2 valid words
             guess = arg_max(priors);
         }
-        else{ // More than 2 words: Compute the entropy for ALL words
+        else if (mode == 0) { // More than 2 words: Compute the entropy for ALL words
             #pragma omp parallel for schedule(dynamic) private(probability_scratch)
             for(int word_idx = 0; word_idx < num_words; word_idx++){
                 probability_scratch.assign(num_patterns, 0.0f);
@@ -212,6 +216,30 @@ int solver(priors_t &priors,
                 // Compute the entropy via map reduce, add the prior probability
                 entropys[word_idx] = entropy_compute(probability_scratch, 
                     prior_sum) + (priors[word_idx] / prior_sum);
+            }
+            // Find the word that maximizes the expected entropy entropy.
+            guess = arg_max(entropys);
+        } else { // (mode == 1), Candidate parallel - absurdly slow
+            // So far the best result was achieved from an inner parallel for on just scatter_reduce, but that was still sub-serial
+            probability_scratch.resize(num_patterns);  // Resize before the parallel block
+            float out = 0.0f;
+            #pragma omp parallel
+            {
+                for(int word_idx = 0; word_idx < num_words; word_idx++){
+                    #pragma omp for
+                    for (int i = 0; i < num_patterns; i++){
+                        probability_scratch[i] = 0.0f;
+                    }
+
+                    parallel_scatter_reduce(pattern_matrix[word_idx], priors,
+                        probability_scratch);
+
+                    out = 0.0f;
+                    parallel_entropy_compute(probability_scratch, 
+                        prior_sum + priors[word_idx] / prior_sum, out);
+                    #pragma omp single nowait
+                    entropys[word_idx] = out;
+                }
             }
             // Find the word that maximizes the expected entropy entropy.
             guess = arg_max(entropys);
@@ -249,8 +277,9 @@ int main(int argc, char **argv) {
     bool verbose = false;
     bool rand_prior = false;
     int opt;
+    int mode = 0;
     // Read program parameters
-    while ((opt = getopt(argc, argv, "f:n:p:t:m:rv")) != -1) {
+    while ((opt = getopt(argc, argv, "f:n:p:t:m:x:rv")) != -1) {
         switch (opt) {
         case 'f':
             text_filename = optarg;
@@ -266,6 +295,9 @@ int main(int argc, char **argv) {
             break;
         case 'm':
             wordlen = atoi(optarg);
+            break;
+        case 'x':
+            mode = atoi(optarg);
             break;
         case 'r':
             rand_prior = true;
@@ -364,7 +396,7 @@ int main(int argc, char **argv) {
             rounds = solver_verbose(words, prior_compute, pattern_matrix, answer_index, priors_sum);
         }
         else{
-            rounds = solver(prior_compute, pattern_matrix, answer_index, priors_sum);
+            rounds = solver(prior_compute, pattern_matrix, answer_index, priors_sum, mode);
         }
         std::cout << "<" << rounds << ">\n";
     }
