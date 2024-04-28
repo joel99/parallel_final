@@ -117,8 +117,11 @@ int_fast64_t solver_verbose(wordlist_t &words,
         random_select = false;
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            guess = src_idx[0];
-            // guess = arg_max(priors);
+            if (mode == 2) {
+                guess = src_idx[0];
+            } else {
+                guess = arg_max(priors);
+            }
             random_select = true;
         }
         else{ // More than 2 words: Compute the entropy for ALL words
@@ -155,6 +158,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
         
         // Check for guess feed back.
         feedback = pattern_matrix[guess][answer];
+
         /******************** Update Phase **********************/
         auto update_start = timestamp;
         if (mode == 0) {
@@ -272,7 +276,11 @@ int solver(priors_t &priors,
         /******************** Entropy Computation Phase **********************/
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            guess = arg_max(priors);
+            if (mode == 2) {
+                guess = src_idx[0];
+            } else {
+                guess = arg_max(priors);
+            }
         }
         else if (mode == 0) { // More than 2 words: Compute the entropy for ALL words
             #pragma omp parallel for schedule(dynamic) private(probability_scratch)
@@ -329,7 +337,19 @@ int solver(priors_t &priors,
         feedback = pattern_matrix[guess][answer];
         if(is_correct_guess(feedback)) return iters + 1;
         /******************** Update Phase **********************/
-        if (mode == 2) {
+        if (mode == 0) {
+            words_remaining = 0;
+            prior_sum = 0.0f;
+            #pragma omp parallel for schedule(dynamic, 64) reduction(+:words_remaining) reduction(+:prior_sum)
+            for(int i = 0; i < num_words; i++){
+                if(is_zero(priors[i])) continue; // prior == 0 for invalid
+                if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
+                else{
+                    words_remaining += 1;
+                    prior_sum += priors[i];
+                }
+            }
+        } else {
             // Rebuild by pushing values to start of arrays
             prior_sum = 0.0f;
             int _write = 0;
@@ -348,18 +368,6 @@ int solver(priors_t &priors,
             priors_scratch.resize(words_remaining);
             for (int i = 0; i < num_words; i++){
                 patterns_scratch[i].resize(words_remaining);
-            }
-        } else {
-            words_remaining = 0;
-            prior_sum = 0.0f;
-            #pragma omp parallel for schedule(dynamic, 64) reduction(+:words_remaining) reduction(+:prior_sum)
-            for(int i = 0; i < num_words; i++){
-                if(is_zero(priors[i])) continue; // prior == 0 for invalid
-                if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
-                else{
-                    words_remaining += 1;
-                    prior_sum += priors[i];
-                }
             }
         }
         iters ++;
