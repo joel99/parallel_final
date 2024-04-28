@@ -379,7 +379,52 @@ int solver(priors_t &priors,
             // Rebuild by pushing values to start of arrays
             // First deep copy
             prior_sum = 0.0f;
-            int _write = 0;
+
+            int _write = 0;  // This will keep track of the global write index after parallel computation
+
+            // concat reduce parallel
+            // #pragma omp parallel
+            // {
+            //     int local_write = 0;
+            //     std::vector<int> local_priors_scratch;
+            //     std::vector<int> local_src_idx_scratch;
+            //     std::vector<std::vector<int>> local_patterns_scratch(num_words);
+
+            //     // Reduction variables for local thread
+            //     int local_prior_sum = 0;
+
+            //     #pragma omp for schedule(dynamic, 64)
+            //     for (int _read = 0; _read < words_remaining; _read++) {
+            //         if ((*patterns_ref)[guess][_read] == feedback) {
+            //             int prior_read = (*priors_ref)[_read];
+            //             local_priors_scratch.push_back(prior_read);
+            //             local_prior_sum += prior_read;
+            //             local_src_idx_scratch.push_back((*src_idx_ref)[_read]);
+
+            //             for (int k = 0; k < num_words; k++) {
+            //                 local_patterns_scratch[k].push_back((*patterns_ref)[k][_read]);
+            //             }
+            //             local_write++;
+            //         }
+            //     }
+
+            //     // Critical section to merge local buffers into the global buffers
+            //     #pragma omp critical
+            //     {
+            //         int start_idx = _write;
+            //         for (int i = 0; i < local_write; i++) {
+            //             priors_scratch[start_idx + i] = local_priors_scratch[i];
+            //             src_idx_scratch[start_idx + i] = local_src_idx_scratch[i];
+            //             for (int k = 0; k < num_words; k++) {
+            //                 patterns_scratch[k][start_idx + i] = local_patterns_scratch[k][i];
+            //             }
+            //         }
+            //         _write += local_write;  // Update the global index after local writes
+            //         prior_sum += local_prior_sum;  // Accumulate the sum of priors
+            //     }
+            // }
+
+            // serial rebuild
             for (int _read = 0; _read < words_remaining; _read++){
                 if ((*patterns_ref)[guess][_read] == feedback) {
                     int prior_read = (*priors_ref)[_read];
