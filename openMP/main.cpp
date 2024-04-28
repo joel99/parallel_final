@@ -104,18 +104,18 @@ int_fast64_t solver_verbose(wordlist_t &words,
     int iters = 0;
 
     // For the first round, just use original data pointers (don't copy, huge overhead!)
-    // std::vector<index_t>& src_idx_ref = src_idx;
-    // priors_t& priors_ref = priors;
-    // std::vector<std::vector<coloring_t>>& patterns_ref = pattern_matrix;
-    if (mode == 2) { // Deep copy
-        src_idx_scratch = src_idx;
-        priors_scratch = priors;
-        patterns_scratch = pattern_matrix;
+    std::vector<index_t>* src_idx_ref = &src_idx;  
+    priors_t* priors_ref = &priors; 
+    std::vector<std::vector<coloring_t>>* patterns_ref = &pattern_matrix; 
+    if (mode == 2) { // Resize
+        src_idx_scratch.resize(num_words);
+        priors_scratch.resize(num_words);
+        patterns_scratch.resize(num_words);
+        for (int i = 0; i < num_words; i++){
+            patterns_scratch[i].resize(pattern_matrix[i].size());
+        }
     }
-    std::vector<index_t>& src_idx_ref = src_idx_scratch;  
-    priors_t& priors_ref = priors_scratch; 
-    std::vector<std::vector<coloring_t>>& patterns_ref = patterns_scratch; 
-    
+
     auto loop_start = timestamp;
     while(iters < MAXITERS){
         /******************** Entropy Computation Phase **********************/
@@ -149,12 +149,10 @@ int_fast64_t solver_verbose(wordlist_t &words,
                 #pragma omp parallel for schedule(dynamic) private(probability_scratch)
                 for(int word_idx = 0; word_idx < num_words; word_idx++){
                     probability_scratch.assign(num_patterns, 0.0f);
-                    scatter_reduce(patterns_scratch[word_idx], priors_scratch,
-                    // scatter_reduce(patterns_ref[word_idx], priors_ref,
+                    scatter_reduce((*patterns_ref)[word_idx], *priors_ref,
                         probability_scratch);
                     entropys[word_idx] = entropy_compute(probability_scratch, 
-                        prior_sum) + (priors_scratch[word_idx] / prior_sum);
-                        // prior_sum) + (priors_ref[word_idx] / prior_sum);
+                        prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
                 }
             }
             auto compute_end = timestamp;
@@ -188,24 +186,26 @@ int_fast64_t solver_verbose(wordlist_t &words,
             prior_sum = 0.0f;
             int _write = 0;
             for (int _read = 0; _read < words_remaining; _read++){
-                if (patterns_scratch[guess][_read] == feedback) {
-                    priors_scratch[_write] = priors_scratch[_read];
-                    src_idx_scratch[_write] = src_idx_scratch[_read];
+                if ((*patterns_ref)[guess][_read] == feedback) {
+                    int prior_read = (*priors_ref)[_read];
+                    priors_scratch[_write] = prior_read;
+                    prior_sum += prior_read;
+                    src_idx_scratch[_write] = (*src_idx_ref)[_read];
                     for (int k = 0; k < num_words; k++){
-                        patterns_scratch[k][_write] = patterns_scratch[k][_read];
+                        patterns_scratch[k][_write] = (*patterns_ref)[k][_read];
                     }
-                    prior_sum += priors_scratch[_write];
                     _write++;
                 }
             }
             words_remaining = _write;
+            src_idx_scratch.resize(words_remaining);
             priors_scratch.resize(words_remaining);
             for (int i = 0; i < num_words; i++){
                 patterns_scratch[i].resize(words_remaining);
             }
-            priors_ref = priors_scratch;
-            src_idx_ref = src_idx_scratch;
-            patterns_ref = patterns_scratch;
+            src_idx_ref = &src_idx_scratch;
+            priors_ref = &priors_scratch;
+            patterns_ref = &patterns_scratch;
 
             uncertainty = entropy_compute(priors_scratch, prior_sum);
         }
@@ -287,18 +287,14 @@ int solver(priors_t &priors,
     std::vector<index_t>* src_idx_ref = &src_idx;  
     priors_t* priors_ref = &priors; 
     std::vector<std::vector<coloring_t>>* patterns_ref = &pattern_matrix; 
-    if (mode == 2) { // Deep copy
-        // src_idx_scratch = src_idx;
-        priors_scratch = priors;
-        patterns_scratch = pattern_matrix;
+    if (mode == 2) { // Resize
+        src_idx_scratch.resize(num_words);
+        priors_scratch.resize(num_words);
+        patterns_scratch.resize(num_words);
+        for (int i = 0; i < num_words; i++){
+            patterns_scratch[i].resize(pattern_matrix[i].size());
+        }
     }
-    // std::vector<index_t>* src_idx_ref = &src_idx_scratch;  
-    // priors_t* priors_ref = &priors_scratch; 
-    // std::vector<std::vector<coloring_t>>* patterns_ref = &patterns_scratch; 
-
-    // src_idx_ref = &src_idx_scratch;  
-    // priors_ref = &priors_scratch; 
-    // patterns_ref = &patterns_scratch; 
     
     while(iters < MAXITERS){
         /******************** Entropy Computation Phase **********************/
@@ -397,6 +393,7 @@ int solver(priors_t &priors,
                 }
             }
             words_remaining = _write;
+            src_idx_scratch.resize(words_remaining);
             priors_scratch.resize(words_remaining);
             for (int i = 0; i < num_words; i++){
                 patterns_scratch[i].resize(words_remaining);
