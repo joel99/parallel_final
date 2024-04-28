@@ -97,27 +97,50 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
     int iters = 0;
 
+    std::vector<index_t> src_idx(num_words);
+    for (int i = 0; i < num_words; i++){
+        src_idx[i] = i;
+    }
+    priors_t priors_scratch = priors;
+    std::vector<std::vector<coloring_t>> 
+        patterns_scratch(num_words, std::vector<coloring_t>(words_remaining));
+    for (int i = 0; i < num_words; i++){
+        for (int j = 0; j < words_remaining; j++){
+            patterns_scratch[i][j] = pattern_matrix[i][j];
+        }
+    }
+
     while(iters < MAXITERS){
         /******************** Entropy Computation Phase **********************/
         std::cout<<"==========================================================\n";
         random_select = false;
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            guess = arg_max(priors);
+            guess = src_idx[0];
+            // guess = arg_max(priors);
             random_select = true;
         }
         else{ // More than 2 words: Compute the entropy for ALL words
             auto compute_start = timestamp;
+            // #pragma omp parallel for schedule(dynamic) private(probability_scratch)
+            // for(int word_idx = 0; word_idx < num_words; word_idx++){
+            //     probability_scratch.assign(num_patterns, 0.0f);
+            //     // Pool up the total word weights for each pattern
+            //     scatter_reduce(pattern_matrix[word_idx], priors,
+            //         probability_scratch);
+            //     // Normalize the pooled weights into a probability distribution
+            //     // Compute the entropy via map reduce
+            //     entropys[word_idx] = entropy_compute(probability_scratch, 
+            //         prior_sum)+ (priors[word_idx] / prior_sum);
+            // }
+
             #pragma omp parallel for schedule(dynamic) private(probability_scratch)
             for(int word_idx = 0; word_idx < num_words; word_idx++){
                 probability_scratch.assign(num_patterns, 0.0f);
-                // Pool up the total word weights for each pattern
-                scatter_reduce(pattern_matrix[word_idx], priors,
+                scatter_reduce(patterns_scratch[word_idx], priors_scratch,
                     probability_scratch);
-                // Normalize the pooled weights into a probability distribution
-                // Compute the entropy via map reduce
                 entropys[word_idx] = entropy_compute(probability_scratch, 
-                    prior_sum)+ (priors[word_idx] / prior_sum);
+                    prior_sum) + (priors_scratch[word_idx] / prior_sum);
             }
             auto compute_end = timestamp;
             // Find the word that maximizes the expected entropy entropy.
@@ -131,18 +154,41 @@ int_fast64_t solver_verbose(wordlist_t &words,
         feedback = pattern_matrix[guess][answer];
         /******************** Update Phase **********************/
         auto update_start = timestamp;
-        words_remaining = 0;
+        // words_remaining = 0;
+        // prior_sum = 0.0f;
+        // for(int i = 0; i < num_words; i++){
+        //     if(is_zero(priors[i])) continue; // prior == 0 for invalid
+        //     if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
+        //     else{
+        //         words_remaining += 1;
+        //         prior_sum += priors[i];
+        //     }
+        // }
+        // // Compute the new uncertainty measure after a guess
+        // uncertainty = entropy_compute(priors, prior_sum);
+
+
+        // guess and entropy are in original space, others are reduced
         prior_sum = 0.0f;
-        for(int i = 0; i < num_words; i++){
-            if(is_zero(priors[i])) continue; // prior == 0 for invalid
-            if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
-            else{
-                words_remaining += 1;
-                prior_sum += priors[i];
+        int _write = 0;
+        for (int _read = 0; _read < words_remaining; _read++){
+            if (patterns_scratch[guess][_read] == feedback) {
+                priors_scratch[_write] = priors_scratch[_read];
+                src_idx[_write] = src_idx[_read];
+                for (int k = 0; k < num_words; k++){
+                    patterns_scratch[k][_write] = patterns_scratch[k][_read];
+                }
+                prior_sum += priors_scratch[_write];
+                _write++;
             }
         }
-        // Compute the new uncertainty measure after a guess
-        uncertainty = entropy_compute(priors, prior_sum);
+        words_remaining = _write;
+        priors_scratch.resize(words_remaining);
+        for (int i = 0; i < num_words; i++){
+            patterns_scratch[i].resize(words_remaining);
+        }
+
+        uncertainty = entropy_compute(priors_scratch, prior_sum);
 
         auto update_end = timestamp;
         std::cout << "Update Phase total Time:" << TIME(update_start, update_end) << "\n"; 
@@ -154,9 +200,12 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
         std::cout << "Remaining Uncertainty: " << uncertainty << "\n";
         std::cout << "Remaining Words (" << words_remaining <<"):\n";
-        for(int i = 0; i < num_words; i++){
-            if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
+        for(int i = 0; i < words_remaining; i++){
+            word_print(words[src_idx[i]], 0, ' ');
         }
+        // for(int i = 0; i < num_words; i++){
+        //     if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
+        // }
         std::cout << "\n";
 
         iters ++;
@@ -199,6 +248,21 @@ int solver(priors_t &priors,
 
     int iters = 0;
 
+    // if (mode == 2) {
+    std::vector<index_t> src_idx(num_words);
+    for (int i = 0; i < num_words; i++){
+        src_idx[i] = i;
+    }
+    priors_t priors_scratch = priors;
+    std::vector<std::vector<coloring_t>> 
+        patterns_scratch(num_words, std::vector<coloring_t>(words_remaining));
+    for (int i = 0; i < num_words; i++){
+        for (int j = 0; j < words_remaining; j++){
+            patterns_scratch[i][j] = pattern_matrix[i][j];
+        }
+    }
+    // }
+
     while(iters < MAXITERS){
         /******************** Entropy Computation Phase **********************/
         if(words_remaining <= 2){ 
@@ -219,7 +283,7 @@ int solver(priors_t &priors,
             }
             // Find the word that maximizes the expected entropy entropy.
             guess = arg_max(entropys);
-        } else { // (mode == 1), Candidate parallel - absurdly slow
+        } else if (mode == 1) { // Candidate parallel - absurdly slow
             // So far the best result was achieved from an inner parallel for on just scatter_reduce, but that was still sub-serial
             probability_scratch.resize(num_patterns);  // Resize before the parallel block
             float out = 0.0f;
@@ -243,21 +307,54 @@ int solver(priors_t &priors,
             }
             // Find the word that maximizes the expected entropy entropy.
             guess = arg_max(entropys);
+        } else {
+            // Run a step
+            #pragma omp parallel for schedule(dynamic) private(probability_scratch)
+            for(int word_idx = 0; word_idx < num_words; word_idx++){
+                probability_scratch.assign(num_patterns, 0.0f);
+                scatter_reduce(patterns_scratch[word_idx], priors_scratch,
+                    probability_scratch);
+                entropys[word_idx] = entropy_compute(probability_scratch, 
+                    prior_sum) + (priors_scratch[word_idx] / prior_sum);
+            }
+            guess = arg_max(entropys);
         }
 
         // Check for guess feed back.
         feedback = pattern_matrix[guess][answer];
         if(is_correct_guess(feedback)) return iters + 1;
         /******************** Update Phase **********************/
-        words_remaining = 0;
-        prior_sum = 0.0f;
-        #pragma omp parallel for schedule(dynamic, 64) reduction(+:words_remaining) reduction(+:prior_sum)
-        for(int i = 0; i < num_words; i++){
-            if(is_zero(priors[i])) continue; // prior == 0 for invalid
-            if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
-            else{
-                words_remaining += 1;
-                prior_sum += priors[i];
+        if (mode == 2) {
+            // Rebuild by pushing values to start of arrays
+            prior_sum = 0.0f;
+            int _write = 0;
+            for (int _read = 0; _read < words_remaining; _read++){
+                if (patterns_scratch[guess][_read] == feedback) {
+                    priors_scratch[_write] = priors_scratch[_read];
+                    src_idx[_write] = src_idx[_read];
+                    for (int k = 0; k < num_words; k++){
+                        patterns_scratch[k][_write] = patterns_scratch[k][_read];
+                    }
+                    prior_sum += priors_scratch[_write];
+                    _write++;
+                }
+            }
+            words_remaining = _write;
+            priors_scratch.resize(words_remaining);
+            for (int i = 0; i < num_words; i++){
+                patterns_scratch[i].resize(words_remaining);
+            }
+        } else {
+            words_remaining = 0;
+            prior_sum = 0.0f;
+            #pragma omp parallel for schedule(dynamic, 64) reduction(+:words_remaining) reduction(+:prior_sum)
+            for(int i = 0; i < num_words; i++){
+                if(is_zero(priors[i])) continue; // prior == 0 for invalid
+                if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
+                else{
+                    words_remaining += 1;
+                    prior_sum += priors[i];
+                }
             }
         }
         iters ++;
@@ -372,7 +469,7 @@ int main(int argc, char **argv) {
 
     // IO Complete
     auto init_end = timestamp;
-        std::cout << "Initialization: " << TIME(init_start, init_end) << "\n";
+        std::cout << "IO Initialization: " << TIME(init_start, init_end) << "\n";
 
     auto precompute_start = timestamp;
     // Precompute the coloring matrix
