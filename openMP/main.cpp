@@ -77,9 +77,14 @@ void compute_patterns(std::vector<std::vector<coloring_t>> &pattern_matrix,
 int_fast64_t solver_verbose(wordlist_t &words,
             priors_t &priors,
             std::vector<std::vector<coloring_t>> &pattern_matrix,
+            std::vector<index_t> &src_idx,
+            std::vector<index_t> &src_idx_scratch,
+            priors_t &priors_scratch,
+            std::vector<std::vector<coloring_t>> &patterns_scratch,
             int &answer,
             float prior_sum,
             int mode){
+    auto in_start = timestamp;
     // Initialize Additional Solver Data
     int num_words = pattern_matrix.size();
     int words_remaining = num_words;
@@ -98,29 +103,22 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
     int iters = 0;
 
-    std::vector<index_t> src_idx(num_words);
-    for (int i = 0; i < num_words; i++){
-        src_idx[i] = i;
-    }
-    priors_t priors_scratch = priors;
-    std::vector<std::vector<coloring_t>> 
-        patterns_scratch(num_words, std::vector<coloring_t>(words_remaining));
-    for (int i = 0; i < num_words; i++){
-        for (int j = 0; j < words_remaining; j++){
-            patterns_scratch[i][j] = pattern_matrix[i][j];
-        }
-    }
-
+    // For the first round, just use original data pointers (don't copy, huge overhead!)
+    std::vector<index_t>& src_idx_ref = src_idx;
+    priors_t& priors_ref = priors;
+    std::vector<std::vector<coloring_t>>& patterns_ref = pattern_matrix;
+    
+    auto loop_start = timestamp;
     while(iters < MAXITERS){
         /******************** Entropy Computation Phase **********************/
         std::cout<<"==========================================================\n";
         random_select = false;
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            if (mode == 2) {
-                guess = src_idx[0];
-            } else {
+            if (mode == 0) {
                 guess = arg_max(priors);
+            } else {
+                guess = src_idx_ref[0];
             }
             random_select = true;
         }
@@ -142,10 +140,10 @@ int_fast64_t solver_verbose(wordlist_t &words,
                 #pragma omp parallel for schedule(dynamic) private(probability_scratch)
                 for(int word_idx = 0; word_idx < num_words; word_idx++){
                     probability_scratch.assign(num_patterns, 0.0f);
-                    scatter_reduce(patterns_scratch[word_idx], priors_scratch,
+                    scatter_reduce(patterns_ref[word_idx], priors_ref,
                         probability_scratch);
                     entropys[word_idx] = entropy_compute(probability_scratch, 
-                        prior_sum) + (priors_scratch[word_idx] / prior_sum);
+                        prior_sum) + (priors_ref[word_idx] / prior_sum);
                 }
             }
             auto compute_end = timestamp;
@@ -181,7 +179,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
             for (int _read = 0; _read < words_remaining; _read++){
                 if (patterns_scratch[guess][_read] == feedback) {
                     priors_scratch[_write] = priors_scratch[_read];
-                    src_idx[_write] = src_idx[_read];
+                    src_idx_scratch[_write] = src_idx_scratch[_read];
                     for (int k = 0; k < num_words; k++){
                         patterns_scratch[k][_write] = patterns_scratch[k][_read];
                     }
@@ -209,17 +207,28 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
         std::cout << "Remaining Uncertainty: " << uncertainty << "\n";
         std::cout << "Remaining Words (" << words_remaining <<"):\n";
-        for(int i = 0; i < words_remaining; i++){
-            word_print(words[src_idx[i]], 0, ' ');
+        if (mode == 0) {
+            for(int i = 0; i < num_words; i++){
+                if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
+            }
+        } else {
+            for(int i = 0; i < words_remaining; i++){
+                word_print(words[src_idx_scratch[i]], 0, ' ');
+            }
         }
-        // for(int i = 0; i < num_words; i++){
-        //     if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
-        // }
         std::cout << "\n";
 
         iters ++;
-        if(is_correct_guess(feedback)) return iters;
+        if(is_correct_guess(feedback)) {
+            auto in_end = timestamp;
+            std::cout << "Loop Time: " << TIME(loop_start, in_end) << "\n";
+            std::cout << "Total Time: " << TIME(in_start, in_end) << "\n";
+            return iters;
+        }
     }
+    auto in_end = timestamp;
+    std::cout << "Loop Time: " << TIME(loop_start, in_end) << "\n";
+    std::cout << "Total Time: " << TIME(in_start, in_end) << "\n";
     return iters;
 }
 
@@ -238,6 +247,10 @@ int_fast64_t solver_verbose(wordlist_t &words,
 */
 int solver(priors_t &priors,
             std::vector<std::vector<coloring_t>> &pattern_matrix,
+            std::vector<index_t> &src_idx,
+            std::vector<index_t> &src_idx_scratch,
+            priors_t &priors_scratch,
+            std::vector<std::vector<coloring_t>> &patterns_scratch,
             int &answer,
             float prior_sum,
             int mode
@@ -257,29 +270,24 @@ int solver(priors_t &priors,
 
     int iters = 0;
 
-    // if (mode == 2) {
-    std::vector<index_t> src_idx(num_words);
-    for (int i = 0; i < num_words; i++){
-        src_idx[i] = i;
-    }
-    priors_t priors_scratch = priors;
-    std::vector<std::vector<coloring_t>> 
-        patterns_scratch(num_words, std::vector<coloring_t>(words_remaining));
-    for (int i = 0; i < num_words; i++){
-        for (int j = 0; j < words_remaining; j++){
-            patterns_scratch[i][j] = pattern_matrix[i][j];
-        }
-    }
+    std::vector<index_t>& src_idx_ref = src_idx;  
+    priors_t& priors_ref = priors; 
+    std::vector<std::vector<coloring_t>>& patterns_ref = pattern_matrix; 
+    // if (mode == 2) { // Deep copy
+    //     src_idx_scratch = src_idx;
+    //     priors_scratch = priors;
+    //     patterns_scratch = pattern_matrix;
     // }
 
+    
     while(iters < MAXITERS){
         /******************** Entropy Computation Phase **********************/
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            if (mode == 2) {
-                guess = src_idx[0];
-            } else {
+            if (mode == 0) {
                 guess = arg_max(priors);
+            } else {
+                guess = src_idx_ref[0];
             }
         }
         else if (mode == 0) { // More than 2 words: Compute the entropy for ALL words
@@ -325,10 +333,10 @@ int solver(priors_t &priors,
             #pragma omp parallel for schedule(dynamic) private(probability_scratch)
             for(int word_idx = 0; word_idx < num_words; word_idx++){
                 probability_scratch.assign(num_patterns, 0.0f);
-                scatter_reduce(patterns_scratch[word_idx], priors_scratch,
+                scatter_reduce(patterns_ref[word_idx], priors_ref,
                     probability_scratch);
                 entropys[word_idx] = entropy_compute(probability_scratch, 
-                    prior_sum) + (priors_scratch[word_idx] / prior_sum);
+                    prior_sum) + (priors_ref[word_idx] / prior_sum);
             }
             guess = arg_max(entropys);
         }
@@ -354,11 +362,11 @@ int solver(priors_t &priors,
             prior_sum = 0.0f;
             int _write = 0;
             for (int _read = 0; _read < words_remaining; _read++){
-                if (patterns_scratch[guess][_read] == feedback) {
-                    priors_scratch[_write] = priors_scratch[_read];
-                    src_idx[_write] = src_idx[_read];
+                if (patterns_ref[guess][_read] == feedback) {
+                    priors_scratch[_write] = priors_ref[_read];
+                    src_idx_scratch[_write] = src_idx_ref[_read];
                     for (int k = 0; k < num_words; k++){
-                        patterns_scratch[k][_write] = patterns_scratch[k][_read];
+                        patterns_scratch[k][_write] = patterns_ref[k][_read];
                     }
                     prior_sum += priors_scratch[_write];
                     _write++;
@@ -369,6 +377,9 @@ int solver(priors_t &priors,
             for (int i = 0; i < num_words; i++){
                 patterns_scratch[i].resize(words_remaining);
             }
+            priors_ref = priors_scratch;
+            src_idx_ref = src_idx_scratch;
+            patterns_ref = patterns_scratch;
         }
         iters ++;
     }
@@ -489,7 +500,23 @@ int main(int argc, char **argv) {
     compute_patterns(pattern_matrix, words);
     auto precompute_end = timestamp;
 
+    std::vector<index_t> src_idx(words.size());
+    int num_words = words.size();
+    for (int i = 0; i < num_words; i++){
+        src_idx[i] = i;
+    }
+    std::vector<index_t> src_idx_scratch = src_idx;
+    priors_t priors_scratch = priors;
+    std::vector<std::vector<coloring_t>> patterns_scratch = pattern_matrix;
+
     std::cout << "Pre-processing: " << TIME(precompute_start, precompute_end) << "\n";
+    if (mode == 2) {
+        std::cout << "Rebuild\n";
+    } else if (mode == 1) {
+        std::cout << "Parallel Mode: Candidate Parallel\n";
+    } else {
+        std::cout << "Parallel Mode: Guess Parallel\n";
+    }
     // Benchmark all words in the test set.
     double time_total;
     int answer_index;
@@ -502,11 +529,31 @@ int main(int argc, char **argv) {
         answer_index = test_set[i];
         std::cout << "Benchmarking word: ";
             word_print(words[answer_index], 0, ' ');
+        
         if(verbose){
-            rounds = solver_verbose(words, prior_compute, pattern_matrix, answer_index, priors_sum, mode);
+            rounds = solver_verbose(
+                words, 
+                prior_compute, 
+                pattern_matrix, 
+                src_idx, 
+                src_idx_scratch,
+                priors_scratch,
+                patterns_scratch,
+                answer_index, 
+                priors_sum, 
+                mode);
         }
         else{
-            rounds = solver(prior_compute, pattern_matrix, answer_index, priors_sum, mode);
+            rounds = solver(
+                prior_compute, 
+                pattern_matrix, 
+                src_idx, 
+                src_idx_scratch,
+                priors_scratch,
+                patterns_scratch,
+                answer_index,  
+                priors_sum, 
+                mode);
         }
         std::cout << "<" << rounds << ">\n";
     }
