@@ -78,7 +78,8 @@ int_fast64_t solver_verbose(wordlist_t &words,
             priors_t &priors,
             std::vector<std::vector<coloring_t>> &pattern_matrix,
             int &answer,
-            float prior_sum){
+            float prior_sum,
+            int mode){
     // Initialize Additional Solver Data
     int num_words = pattern_matrix.size();
     int words_remaining = num_words;
@@ -122,25 +123,27 @@ int_fast64_t solver_verbose(wordlist_t &words,
         }
         else{ // More than 2 words: Compute the entropy for ALL words
             auto compute_start = timestamp;
-            // #pragma omp parallel for schedule(dynamic) private(probability_scratch)
-            // for(int word_idx = 0; word_idx < num_words; word_idx++){
-            //     probability_scratch.assign(num_patterns, 0.0f);
-            //     // Pool up the total word weights for each pattern
-            //     scatter_reduce(pattern_matrix[word_idx], priors,
-            //         probability_scratch);
-            //     // Normalize the pooled weights into a probability distribution
-            //     // Compute the entropy via map reduce
-            //     entropys[word_idx] = entropy_compute(probability_scratch, 
-            //         prior_sum)+ (priors[word_idx] / prior_sum);
-            // }
-
-            #pragma omp parallel for schedule(dynamic) private(probability_scratch)
-            for(int word_idx = 0; word_idx < num_words; word_idx++){
-                probability_scratch.assign(num_patterns, 0.0f);
-                scatter_reduce(patterns_scratch[word_idx], priors_scratch,
-                    probability_scratch);
-                entropys[word_idx] = entropy_compute(probability_scratch, 
-                    prior_sum) + (priors_scratch[word_idx] / prior_sum);
+            if (mode == 0) {
+                #pragma omp parallel for schedule(dynamic) private(probability_scratch)
+                for(int word_idx = 0; word_idx < num_words; word_idx++){
+                    probability_scratch.assign(num_patterns, 0.0f);
+                    // Pool up the total word weights for each pattern
+                    scatter_reduce(pattern_matrix[word_idx], priors,
+                        probability_scratch);
+                    // Normalize the pooled weights into a probability distribution
+                    // Compute the entropy via map reduce
+                    entropys[word_idx] = entropy_compute(probability_scratch, 
+                        prior_sum)+ (priors[word_idx] / prior_sum);
+                }
+            } else {
+                #pragma omp parallel for schedule(dynamic) private(probability_scratch)
+                for(int word_idx = 0; word_idx < num_words; word_idx++){
+                    probability_scratch.assign(num_patterns, 0.0f);
+                    scatter_reduce(patterns_scratch[word_idx], priors_scratch,
+                        probability_scratch);
+                    entropys[word_idx] = entropy_compute(probability_scratch, 
+                        prior_sum) + (priors_scratch[word_idx] / prior_sum);
+                }
             }
             auto compute_end = timestamp;
             // Find the word that maximizes the expected entropy entropy.
@@ -154,41 +157,43 @@ int_fast64_t solver_verbose(wordlist_t &words,
         feedback = pattern_matrix[guess][answer];
         /******************** Update Phase **********************/
         auto update_start = timestamp;
-        // words_remaining = 0;
-        // prior_sum = 0.0f;
-        // for(int i = 0; i < num_words; i++){
-        //     if(is_zero(priors[i])) continue; // prior == 0 for invalid
-        //     if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
-        //     else{
-        //         words_remaining += 1;
-        //         prior_sum += priors[i];
-        //     }
-        // }
-        // // Compute the new uncertainty measure after a guess
-        // uncertainty = entropy_compute(priors, prior_sum);
-
-
-        // guess and entropy are in original space, others are reduced
-        prior_sum = 0.0f;
-        int _write = 0;
-        for (int _read = 0; _read < words_remaining; _read++){
-            if (patterns_scratch[guess][_read] == feedback) {
-                priors_scratch[_write] = priors_scratch[_read];
-                src_idx[_write] = src_idx[_read];
-                for (int k = 0; k < num_words; k++){
-                    patterns_scratch[k][_write] = patterns_scratch[k][_read];
+        if (mode == 0) {
+            words_remaining = 0;
+            prior_sum = 0.0f;
+            for(int i = 0; i < num_words; i++){
+                if(is_zero(priors[i])) continue; // prior == 0 for invalid
+                if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
+                else{
+                    words_remaining += 1;
+                    prior_sum += priors[i];
                 }
-                prior_sum += priors_scratch[_write];
-                _write++;
             }
-        }
-        words_remaining = _write;
-        priors_scratch.resize(words_remaining);
-        for (int i = 0; i < num_words; i++){
-            patterns_scratch[i].resize(words_remaining);
+            // Compute the new uncertainty measure after a guess
+            uncertainty = entropy_compute(priors, prior_sum);
+        } else {
+            // guess and entropy are in original space, others are reduced
+            prior_sum = 0.0f;
+            int _write = 0;
+            for (int _read = 0; _read < words_remaining; _read++){
+                if (patterns_scratch[guess][_read] == feedback) {
+                    priors_scratch[_write] = priors_scratch[_read];
+                    src_idx[_write] = src_idx[_read];
+                    for (int k = 0; k < num_words; k++){
+                        patterns_scratch[k][_write] = patterns_scratch[k][_read];
+                    }
+                    prior_sum += priors_scratch[_write];
+                    _write++;
+                }
+            }
+            words_remaining = _write;
+            priors_scratch.resize(words_remaining);
+            for (int i = 0; i < num_words; i++){
+                patterns_scratch[i].resize(words_remaining);
+            }
+
+            uncertainty = entropy_compute(priors_scratch, prior_sum);
         }
 
-        uncertainty = entropy_compute(priors_scratch, prior_sum);
 
         auto update_end = timestamp;
         std::cout << "Update Phase total Time:" << TIME(update_start, update_end) << "\n"; 
@@ -490,7 +495,7 @@ int main(int argc, char **argv) {
         std::cout << "Benchmarking word: ";
             word_print(words[answer_index], 0, ' ');
         if(verbose){
-            rounds = solver_verbose(words, prior_compute, pattern_matrix, answer_index, priors_sum);
+            rounds = solver_verbose(words, prior_compute, pattern_matrix, answer_index, priors_sum, mode);
         }
         else{
             rounds = solver(prior_compute, pattern_matrix, answer_index, priors_sum, mode);
