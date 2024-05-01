@@ -185,9 +185,10 @@ int main(int argc, char **argv) {
     long output_dim = 0L;
     long num_locks = 0L;
     char mode = '\0';
+    unsigned int seed = 0; // Seed for random number generator
     int opt;
     // Read program parameters
-    while ((opt = getopt(argc, argv, "i:o:n:m:l:")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:n:m:l:s")) != -1) {
         switch (opt) {
         case 'i':
             input_dim = atol(optarg);
@@ -203,6 +204,10 @@ int main(int argc, char **argv) {
             break;
         case 'l':
             num_locks = atol(optarg);
+            break;
+        case 's': // Handle seed parameter
+            seed = static_cast<unsigned int>(atoi(optarg));
+            srand(seed); // Seed the random number generator
             break;
         default:
             usage(argv[0]);
