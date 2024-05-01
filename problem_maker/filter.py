@@ -12,11 +12,6 @@ def filter_words(input_file, output_file, lower_bound=5, upper_bound=7):
             file.write(word + '\n')
 
 for i in range(4, 9):
-    input_file_path = 'words_alpha.txt'
+    input_file_path = 'words_alpha.txt' # https://github.com/dwyl/english-words
     output_file_path = f'words_{i}.txt' 
     filter_words(input_file_path, output_file_path, lower_bound=i, upper_bound=i)
-    
-# Example usage
-# input_file_path = 'words_alpha.txt'  # Change this to your input file path
-# output_file_path = 'words_5_7.txt'  # Change this to your desired output file path
-# filter_words(input_file_path, output_file_path)

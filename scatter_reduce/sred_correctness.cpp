@@ -1,5 +1,6 @@
 /**
  * Testing file for different implementations of scatter reduce
+ * Backup of simultaneous serial/parallel for correctness tests
 */
 #include <iostream>
 #include <vector>
@@ -249,12 +250,16 @@ int main(int argc, char **argv) {
     std::vector<double> serial_out(output_dim, 0.0f);
     std::vector<double> parallel_out(output_dim, 0.0f);
 
-    auto start = timestamp;
+    auto serial_start = timestamp;
+
+    // Test Serial Implementation
+    scatter_reduce(data_index, data_in, serial_out);
+
+    auto serial_end = timestamp;
+
+    auto parallel_start = timestamp;
 
     // Test Parallel Implementation
-    if (mode == 'S') {
-        scatter_reduce(data_index, data_in, serial_out);
-    }
     if(mode == 'L'){ // lock
         lock_scatter_reduce(data_in, data_index, parallel_out, locks);
     }
@@ -268,13 +273,18 @@ int main(int argc, char **argv) {
         reduction_scatter_reduce_omp(data_in, data_index, parallel_out);
     }
 
-    auto end = timestamp;
+    auto parallel_end = timestamp;
 
     for(auto l:locks){
         omp_destroy_lock(&l);
     }
-    // Use std::fixed and std::setprecision to control the output format
-    std::cout << std::fixed << std::setprecision(10); // Set the precision to 10 decimal places
-    std::cout << "computation time:   " << TIME(start, end) << "\n";
-    return 0;
+    std::cout << "serial computation time:   " << TIME(serial_start, serial_end) << "\n";
+    std::cout << "parallel computation time: " << TIME(parallel_start, parallel_end) << "\n";
+    std::cout << "Parallel Speedup:" << TIME(serial_start, serial_end) / TIME(parallel_start, parallel_end) << "\n";
+
+    for(long i = 0; i < output_dim; i++){
+        if(!is_zero(serial_out[i] -parallel_out[i])){
+            printf("Parallel Solution Mismatch at [%d]: Expected %f, Actual: %f\n", i, serial_out[i], parallel_out[i]);
+        }
+    }
 }
