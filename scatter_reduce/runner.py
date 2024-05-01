@@ -4,14 +4,14 @@ import math
 import pickle # needed for full precision storage, rather than writing to csv again
 # Configuration settings
 # Common variables
-input_pow = range(12, 16, 4)
-# input_pow = range(12, 32, 4)
+# input_pow = range(12, 16, 4)
+input_pow = range(12, 32, 4)
 input_range = [int(math.pow(2, i)) for i in input_pow]
-output_pow = [5]
-# output_pow = [5, 6, 7, 8]
+# output_pow = [5]
+output_pow = [5, 6, 7, 8]
 output_range = [int(math.pow(3, j)) for j in output_pow]
-thread_range = [4]
-# thread_range = [1, 2, 4, 8, 16]
+# thread_range = [4]
+thread_range = [1, 2, 4, 8, 16]
 seed = [0, 1, 2]
 
 specific_params = []
