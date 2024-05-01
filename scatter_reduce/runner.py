@@ -36,7 +36,7 @@ exp_params = []
 
 # mode = 'L' specific
 # use a reduced set of inputs - hangs on full
-for i in input_range[:len(input_range) / 2]:
+for i in input_range[:int(len(input_range) / 2)]:
     for o in output_range:
         for n in thread_range:
             for s in seed:
