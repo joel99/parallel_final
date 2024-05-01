@@ -2,6 +2,7 @@ import subprocess
 import csv
 import math
 import pickle # needed for full precision storage, rather than writing to csv again
+from tqdm import tqdm
 # Configuration settings
 # Common variables
 # input_pow = range(12, 16, 4)
@@ -93,7 +94,8 @@ with open(output_csv, 'w', newline='') as file:
     writer = csv.DictWriter(file, fieldnames=fieldnames)
     writer.writeheader()
     
-    for params in exp_params:
+    for params in (pbar := tqdm(exp_params)):
+        pbar.set_postfix_str(params)
         output = run_benchmark(params)
         metrics = parse_output(output)
         metrics.update({

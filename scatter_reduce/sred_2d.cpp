@@ -94,33 +94,6 @@ void lock_scatter_reduce(std::vector<double> &data_in,
 }
 
 /**
- * Each thread writes to a pre-allocated span of the output, but scans full input.
- * Assumes write-bound, not read bound; and gives a sense of the burden of big input low output scenarios.
- * @param locks a vector of initialized omp locks
-*/
-void lock_free_scatter_reduce(std::vector<double> &data_in,
-                         std::vector<int> &data_index,
-                         std::vector<double> &data_out){
-    // Compute local span
-    int n = static_cast<int>(data_in.size());
-    int write_span = ceil_xdivy(data_out.size(), omp_get_max_threads());
-    #pragma omp parallel
-    {
-        int idx;
-        int write_min = write_span * omp_get_thread_num();
-        int write_max = std::min(write_min + write_span, static_cast<int>(data_out.size()));
-
-        for(int i = 0; i < n; i++){
-            idx = data_index[i];
-            if (idx >= write_min && idx < write_max){
-                data_out[idx] += data_in[i];
-            }
-        }
-    }
-}
-
-
-/**
  * A reduction based scatter reduce
  * @param scratch - a  <num_proc> * <data_out.size()> temporary matrix for thread
  *                  local aggregation (better than local allocation)
@@ -149,18 +122,6 @@ void reduction_scatter_reduce(std::vector<double> &data_in,
                 }
             }
     }
-
-    // Directly as OMP pragma
-    // double* data_out_ptr = data_out.data();
-    // #pragma omp parallel
-    // {
-    //     int idx;
-    //     #pragma omp for reduction(+:data_out_ptr[:m])
-    //     for(int i = 0; i < n; i++){
-    //         idx = data_index[i];
-    //         data_out_ptr[idx] += data_in[i];
-    //     }
-    // }
 }
 
 void reduction_scatter_reduce_omp(std::vector<double> &data_in,
@@ -180,8 +141,6 @@ void reduction_scatter_reduce_omp(std::vector<double> &data_in,
         }
     }
 }
-
-
 
 /**
  * Main routine
@@ -253,8 +212,8 @@ int main(int argc, char **argv) {
     for(int i = 0; i < num_locks; i++){
         omp_init_lock(&locks[i]);
     }
-    std::vector<double> serial_out(output_dim, 0.0f);
-    std::vector<double> parallel_out(output_dim, 0.0f);
+    std::vector<std::vector<double>> serial_out(input_dim, std::vector<double>(output_dim, 0.0f));
+    std::vector<std::vector<double>> parallel_out(input_dim, std::vector<double>(output_dim, 0.0f));
 
     auto serial_start = timestamp;
 
@@ -289,8 +248,10 @@ int main(int argc, char **argv) {
     std::cout << "Parallel Speedup:" << TIME(serial_start, serial_end) / TIME(parallel_start, parallel_end) << "\n";
 
     for(long i = 0; i < output_dim; i++){
-        if(!is_zero(serial_out[i] -parallel_out[i])){
-            printf("Parallel Solution Mismatch at [%d]: Expected %f, Actual: %f\n", i, serial_out[i], parallel_out[i]);
+        for (long j = 0; j < input_dim; j++){
+            if(!is_zero(serial_out[j][i] -parallel_out[j][i])){
+                printf("Parallel Solution Mismatch at [%lu][%lu]: Expected %f, Actual: %f\n", j, i, serial_out[j][i], parallel_out[j][i]);
+            }
         }
     }
 }
