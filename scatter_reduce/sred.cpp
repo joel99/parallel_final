@@ -188,7 +188,7 @@ int main(int argc, char **argv) {
     unsigned int seed = 0; // Seed for random number generator
     int opt;
     // Read program parameters
-    while ((opt = getopt(argc, argv, "i:o:n:m:l:s")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:n:m:l:s:")) != -1) {
         switch (opt) {
         case 'i':
             input_dim = atol(optarg);

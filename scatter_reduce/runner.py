@@ -9,7 +9,7 @@ input_range = [int(math.pow(2, i)) for i in input_pow]
 # output_pow = [5]
 output_pow = [5, 6, 7, 8]
 output_range = [int(math.pow(3, j)) for j in output_pow]
-# thread_range = [4]
+thread_range = [4]
 thread_range = [1, 2, 4, 8, 16]
 seed = [0, 1, 2]
 
