@@ -15,16 +15,12 @@ thread_range = [1, 2, 4, 8, 16]
 seed = [0, 1, 2]
 
 specific_params = []
-# mode = 'L' specific
-for l in [16, 64]:
-    specific_params.append(
-        {'-l': l, '-m': 'L'}
-    )
 
-# mode = 'F'
-specific_params.append(
-    {'-m': 'F', '-l': 0}
-)
+
+# mode = 'F' - this is silly
+# specific_params.append(
+#     {'-m': 'F', '-l': 0}
+# )
 
 # mode = 'R'
 specific_params.append(
@@ -37,6 +33,16 @@ specific_params.append(
 
 # Cross product specific with common parameters
 exp_params = []
+
+# mode = 'L' specific
+# use a reduced set of inputs - hangs on full
+for i in input_range[:len(input_range) / 2]:
+    for o in output_range:
+        for n in thread_range:
+            for s in seed:
+                for l in [16, 64]:
+                    exp_params.append({'-m': 'L', '-l': l, '-i': i, '-o': o, '-n': n, '-s': s})
+
 for param in specific_params:
     for i in input_range:
         for o in output_range:
@@ -50,6 +56,7 @@ for i in input_range:
     for o in output_range:
         for s in seed:
             exp_params.append({'-m': 'S', '-l': 0, '-i': i, '-o': o, '-n': 1, '-s': s})
+
 
 executable_path = './sred'
 output_csv = 'benchmark_results.csv'
