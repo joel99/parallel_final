@@ -72,8 +72,8 @@ void parallel_scatter_reduce(std::vector<index_t> &data_index,
     // }
 
     // Directly as OMP pragma
-    // #pragma omp parallel
-    // {
+    #pragma omp parallel
+    {
         float* data_out_ptr = data_out.data();
         int idx;
         #pragma omp for reduction(+:data_out_ptr[:m])
@@ -81,7 +81,7 @@ void parallel_scatter_reduce(std::vector<index_t> &data_index,
             idx = data_index[i];
             data_out_ptr[idx] += data_in[i];
         }
-    // }
+    }
 }
 
 

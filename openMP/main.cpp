@@ -123,7 +123,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
         random_select = false;
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            if (mode == 0) {
+            if (mode != 2) {
                 guess = arg_max(priors);
             } else {
                 guess = src_idx_scratch[0];
@@ -133,7 +133,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
         }
         else{ // More than 2 words: Compute the entropy for ALL words
             auto compute_start = timestamp;
-            if (mode == 0) {
+            if (mode != 2) {
                 #pragma omp parallel for schedule(dynamic) private(probability_scratch)
                 for(int word_idx = 0; word_idx < num_words; word_idx++){
                     probability_scratch.assign(num_patterns, 0.0f);
@@ -168,7 +168,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
         /******************** Update Phase **********************/
         auto update_start = timestamp;
-        if (mode == 0) {
+        if (mode != 2) {
             words_remaining = 0;
             prior_sum = 0.0f;
             for(int i = 0; i < num_words; i++){
@@ -221,7 +221,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
         std::cout << "Remaining Uncertainty: " << uncertainty << "\n";
         std::cout << "Remaining Words (" << words_remaining <<"):\n";
-        if (mode == 0) {
+        if (mode != 2) {
             for(int i = 0; i < num_words; i++){
                 if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
             }
@@ -300,7 +300,7 @@ int solver(priors_t &priors,
         /******************** Entropy Computation Phase **********************/
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            if (mode == 0) {
+            if (mode != 2) {
                 guess = arg_max(priors);
             } else {
                 guess = (*src_idx_ref)[0];
@@ -363,7 +363,7 @@ int solver(priors_t &priors,
         feedback = pattern_matrix[guess][answer];
         if(is_correct_guess(feedback)) return iters + 1;
         /******************** Update Phase **********************/
-        if (mode == 0) {
+        if (mode != 2) {
             words_remaining = 0;
             prior_sum = 0.0f;
             #pragma omp parallel for schedule(dynamic, 64) reduction(+:words_remaining) reduction(+:prior_sum)
