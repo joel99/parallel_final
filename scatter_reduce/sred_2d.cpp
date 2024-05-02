@@ -153,7 +153,8 @@ void reduction_scatter_reduce_omp(std::vector<double> &data_in, // input
 void reduction_scatter_reduce_pipeline(std::vector<double> &data_in, // input
                               std::vector<std::vector<int>> &data_index, // output by input
                               std::vector<std::vector<double>> &data_out, // input by color/output 
-                              std::vector<std::vector<std::vector<double>>> &scratch){ // thread by input by color/output
+                              std::vector<std::vector<std::vector<double>>> &scratch,
+                              std::vector<omp_lock_t> &locks){ // thread by input by color/output
     /*
         Hybrid guess-candidate parallel, to demonstrate a point about candidate
         Here threads will track and be adding and attempting to reduce work queues accumulated across guesses.
@@ -163,14 +164,7 @@ void reduction_scatter_reduce_pipeline(std::vector<double> &data_in, // input
     */
     int guesses = static_cast<int>(data_index.size());
     int colors = static_cast<int>(data_out[0].size());
-    std::cout << "Guesses: " << guesses << " Colors: " << colors << "\n";
 
-    // Init locks and completion checks per workers
-    std::vector<omp_lock_t> locks(guesses); 
-    // init locks
-    for(int i = 0; i < guesses; i++){
-        omp_init_lock(&locks[i]);
-    }
     int num_threads = omp_get_max_threads();
     // std::vector<std::vector<bool>> completion(guesses, std::vector<bool>(num_threads, false));
     // TODO, there's no reason only own thread should commit own work other than cache effect
@@ -290,9 +284,19 @@ int main(int argc, char **argv) {
     std::vector<std::vector<std::vector<double>>> scratch(num_threads, std::vector<std::vector<double>>(input_dim, std::vector<double>(output_dim, 0.0)));
 
     // std::vector<std::vector<std::vector<double>>> scratch(num_threads, std::vector<double>(input_dim, std::vector<double>(output_dim, 0.0f)));
-    std::vector<omp_lock_t>locks(num_locks);
-    for(int i = 0; i < num_locks; i++){
-        omp_init_lock(&locks[i]);
+    std::vector<omp_lock_t> locks;
+    if (mode == 'P') {
+        int guesses = static_cast<int>(data_index.size());
+        locks = std::vector<omp_lock_t>(guesses); 
+        // init locks
+        for(int i = 0; i < guesses; i++){
+            omp_init_lock(&locks[i]);
+        }
+    } else {
+        locks = std::vector<omp_lock_t>(num_locks);
+        for(int i = 0; i < num_locks; i++){
+            omp_init_lock(&locks[i]);
+        }
     }
     std::vector<std::vector<double>> serial_out(input_dim, std::vector<double>(output_dim, 0.0f));
     std::vector<std::vector<double>> parallel_out(input_dim, std::vector<double>(output_dim, 0.0f));
@@ -331,10 +335,12 @@ int main(int argc, char **argv) {
         reduction_scatter_reduce_omp(data_in, data_index, parallel_out_flat);
     }
     if (mode == 'P') {
-        reduction_scatter_reduce_pipeline(data_in, data_index, parallel_out, scratch);
+        reduction_scatter_reduce_pipeline(data_in, data_index, parallel_out, scratch, locks);
     }
 
     auto parallel_end = timestamp;
+
+    // Teardown
     if (mode == 'M') {
         // write back in
         for (long i = 0; i < input_dim; i++){
