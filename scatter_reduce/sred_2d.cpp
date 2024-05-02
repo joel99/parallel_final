@@ -15,6 +15,7 @@
 #include <chrono>
 #include <unistd.h>
 #include <cmath>
+#include <list>
 
 #include <omp.h>
 
@@ -103,6 +104,22 @@ void reduction_scatter_reduce(std::vector<double> &data_in, // input
             }
 
         }
+        // No alloc, theoretical near equivalent to OMP
+        // std::vector<double> local_sum(colors, 0.0); // Each thread has a local sum array
+        // int idx;
+
+        // for (int guess = 0; guess < guesses; guess++) {
+        //     local_sum.assign(colors, 0.0); // Reset local sum
+        //     #pragma omp for
+        //     for (int candidate = 0; candidate < data_index[guess].size(); candidate++) {
+        //         idx = data_index[guess][candidate];
+        //         local_sum[idx] += data_in[candidate]; // Accumulate locally
+        //     }
+        //     #pragma omp critical // Safely add local sums to the main array
+        //     for (int i = 0; i < colors; i++) {
+        //         data_out_flat[guess * colors + i] += local_sum[i];
+        //     }
+        // }
     }
 }
 
@@ -120,33 +137,89 @@ void reduction_scatter_reduce_omp(std::vector<double> &data_in, // input
     // Manual
     #pragma omp parallel // Local Aggregation Step
     {
-        std::vector<double> local_sum(colors, 0.0); // Each thread has a local sum array
+        // OMP - fails for longer lengths (IO shape 12800 x 256, 1x263609) for unknown reason, manual above still works
         int idx;
-
-        #pragma omp for nowait // Distribute loop iterations across threads
-        for (int guess = 0; guess < guesses; guess++) {
-            local_sum.assign(colors, 0.0); // Reset local sum
-            for (int candidate = 0; candidate < data_index[guess].size(); candidate++) {
+        for (int guess = 0; guess < guesses; guess++){
+            #pragma omp for reduction(+:data_out_ptr[guess * colors:colors]) // syntax is start:length
+            for(int candidate = 0; candidate < data_index[guess].size(); candidate++){
                 idx = data_index[guess][candidate];
-                local_sum[idx] += data_in[candidate]; // Accumulate locally
-            }
-            #pragma omp critical // Safely add local sums to the main array
-            for (int i = 0; i < colors; i++) {
-                data_out_flat[guess * colors + i] += local_sum[i];
+                data_out_ptr[guess * colors + idx] += data_in[candidate];
             }
         }
-
-        // OMP 
-        // int idx;
-        // for (int guess = 0; guess < guesses; guess++){
-        //     #pragma omp for reduction(+:data_out_ptr[guess * colors:colors]) // syntax is start:length
-        //     for(int candidate = 0; candidate < data_index[guess].size(); candidate++){
-        //         idx = data_index[guess][candidate];
-        //         data_out_ptr[guess * colors + idx] += data_in[candidate];
-        //     }
-        // }
     }
     // TODO experiment with reduction no wait (intuitively, like pipeline parallelism)
+}
+
+void reduction_scatter_reduce_pipeline(std::vector<double> &data_in, // input
+                              std::vector<std::vector<int>> &data_index, // output by input
+                              std::vector<std::vector<double>> &data_out, // input by color/output 
+                              std::vector<std::vector<std::vector<double>>> &scratch){ // thread by input by color/output
+    /*
+        Hybrid guess-candidate parallel, to demonstrate a point about candidate
+        Here threads will track and be adding and attempting to reduce work queues accumulated across guesses.
+
+        TODO illustrate memory consumption of full scratch
+        TODO refactor full scratch into a partial, limited capacity scratch
+    */
+    int guesses = static_cast<int>(data_index.size());
+    int colors = static_cast<int>(data_out[0].size());
+    std::cout << "Guesses: " << guesses << " Colors: " << colors << "\n";
+
+    // Init locks and completion checks per workers
+    std::vector<omp_lock_t> locks(guesses); 
+    // init locks
+    for(int i = 0; i < guesses; i++){
+        omp_init_lock(&locks[i]);
+    }
+    int num_threads = omp_get_max_threads();
+    // std::vector<std::vector<bool>> completion(guesses, std::vector<bool>(num_threads, false));
+    // TODO, there's no reason only own thread should commit own work other than cache effect
+    // TODO profile write/read ratio
+    // thread by guesses to process, list because we will be popping
+    std::vector<std::list<int>> task_queue = std::vector<std::list<int>>(num_threads, std::list<int>());
+
+    // Hypothetical gains over guess-parallel if shared cache can be leveraged
+    // Manual
+    int candidate_span = ceil_xdivy(guesses, num_threads);
+    #pragma omp parallel
+    {
+        int thread_id = omp_get_thread_num();
+        int read_min = candidate_span * thread_id;
+        int read_max = std::min(read_min + candidate_span, guesses);
+
+        int idx;
+        for (int guess = 0; guess < guesses; guess++){
+            for(int candidate = read_min; candidate < read_max; candidate++){
+                idx = data_index[guess][candidate];
+                scratch[thread_id][guess][idx] += data_in[candidate];
+            }
+            task_queue[thread_id].push_back(guess);
+            // attempt to clear accumulated work, iterate through list
+            auto it = task_queue[thread_id].begin();
+            while (it != task_queue[thread_id].end()) {
+                int write_guess = *it;
+                if (omp_test_lock(&locks[write_guess])) {
+                    for (int color = 0; color < colors; color++) {
+                        data_out[write_guess][color] += scratch[thread_id][write_guess][color];
+                    }
+                    omp_unset_lock(&locks[write_guess]);
+                    it = task_queue[thread_id].erase(it); // Erase returns the next iterator
+                } else {
+                    ++it;
+                    // Only move to next element if task wasn't done (i.e., lock not acquired)
+                }
+            }
+        }
+        // clear queues - TODO assess how much is used here
+        for (int write_guess = 0; write_guess < task_queue[thread_id].size(); write_guess++) {
+            // std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
+            omp_set_lock(&locks[write_guess]);
+            for (int color = 0; color < colors; color++) {
+                data_out[write_guess][color] += scratch[thread_id][write_guess][color];
+            }
+            omp_unset_lock(&locks[write_guess]);
+        }
+    }
 }
 
 /**
@@ -256,6 +329,9 @@ int main(int argc, char **argv) {
     if (mode == 'M') {
         // reduction_scatter_reduce_omp(data_in, data_index, parallel_out);
         reduction_scatter_reduce_omp(data_in, data_index, parallel_out_flat);
+    }
+    if (mode == 'P') {
+        reduction_scatter_reduce_pipeline(data_in, data_index, parallel_out, scratch);
     }
 
     auto parallel_end = timestamp;
