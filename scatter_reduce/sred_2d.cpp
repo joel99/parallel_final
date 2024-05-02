@@ -147,7 +147,6 @@ void reduction_scatter_reduce_omp(std::vector<double> &data_in, // input
             }
         }
     }
-    // TODO experiment with reduction no wait (intuitively, like pipeline parallelism)
 }
 
 void reduction_scatter_reduce_pipeline(std::vector<double> &data_in, // input
@@ -166,7 +165,6 @@ void reduction_scatter_reduce_pipeline(std::vector<double> &data_in, // input
     int colors = static_cast<int>(data_out[0].size());
 
     int num_threads = omp_get_max_threads();
-    // std::vector<std::vector<bool>> completion(guesses, std::vector<bool>(num_threads, false));
     // TODO, there's no reason only own thread should commit own work other than cache effect
     // TODO profile write/read ratio
     // thread by guesses to process, list because we will be popping
@@ -204,9 +202,10 @@ void reduction_scatter_reduce_pipeline(std::vector<double> &data_in, // input
                 }
             }
         }
-        // clear queues - TODO assess how much is used here
-        for (int write_guess = 0; write_guess < task_queue[thread_id].size(); write_guess++) {
-            // std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
+        // clear queues - doesn't appear to ever get hit..
+        for (auto it = 0; it < task_queue[thread_id].size(); it++) {
+            int write_guess = task_queue[thread_id].front();
+            std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
             omp_set_lock(&locks[write_guess]);
             for (int color = 0; color < colors; color++) {
                 data_out[write_guess][color] += scratch[thread_id][write_guess][color];
@@ -215,6 +214,102 @@ void reduction_scatter_reduce_pipeline(std::vector<double> &data_in, // input
         }
     }
 }
+
+void reduction_scatter_reduce_cap(std::vector<double> &data_in, // input
+                              std::vector<std::vector<int>> &data_index, // output by input
+                              std::vector<std::vector<double>> &data_out, // input by color/output 
+                              std::vector<std::vector<std::vector<double>>> &scratch, // capacity x color/output
+                              std::vector<omp_lock_t> &locks){ // thread by input by color/output
+    /*
+        Hybrid guess-candidate parallel, to demonstrate a point about candidate
+        Here threads will track and be adding and attempting to reduce work queues accumulated across guesses.
+
+        This version uses limited capacity scratch, so we cannot have arbitrarily large queues.
+    */
+    int guesses = static_cast<int>(data_index.size());
+    int colors = static_cast<int>(data_out[0].size());
+    int capacity = static_cast<int>(scratch[0].size());
+    std::cout << "Guesses: " << guesses << " Colors: " << colors << " Capacity: " << capacity << "\n";
+
+    int num_threads = omp_get_max_threads();
+    // TODO, there's no reason only own thread should commit own work other than cache effect
+    // TODO profile write/read ratio
+    // thread by capacity to process, true if there's data in scratch to write
+    std::vector<std::vector<bool>> task_mask = std::vector<std::vector<bool>>(num_threads, std::vector<bool>(capacity, false));
+    // thread by work-item of (lane, guess) pairs to know what to map from/to
+    auto task_queue = std::vector<std::list<std::pair<int, int>>>(
+        num_threads, std::list<std::pair<int, int>>());
+
+    // Hypothetical gains over guess-parallel if shared cache can be leveraged
+    // Manual
+    int candidate_span = ceil_xdivy(guesses, num_threads);
+    #pragma omp parallel
+    {
+        int thread_id = omp_get_thread_num();
+        int read_min = candidate_span * thread_id;
+        int read_max = std::min(read_min + candidate_span, guesses);
+
+        int idx;
+        for (int guess = 0; guess < guesses; guess++){
+            // find the next empty slot
+            int write_lane = -1;
+            for (int i = 0; i < capacity; i++){
+                if(!task_mask[thread_id][i]){
+                    write_lane = i; 
+                    scratch[thread_id][write_lane].assign(colors, 0.0); // clear
+                    task_mask[thread_id][write_lane] = true;
+                    break;
+                }
+            }
+            // std::cout << "Thread: " << thread_id << " Writing Lane: " << write_lane << "\n";
+            for(int candidate = read_min; candidate < read_max; candidate++){
+                idx = data_index[guess][candidate];
+                scratch[thread_id][write_lane][idx] += data_in[candidate];
+            }
+            task_queue[thread_id].push_back(std::make_pair(guess, write_lane));
+            bool try_once = true;
+            // std::cout << "Thread: " << thread_id << " Queue Size: " << task_queue[thread_id].size() << "\n";
+            // attempt to clear accumulated work, iterate through list, and do not exceed capacity
+            while (try_once || task_queue[thread_id].size() > capacity) {
+                auto it = task_queue[thread_id].begin();
+                while (it != task_queue[thread_id].end()) {
+                    int write_guess = it->first;
+                    int write_lane = it->second;
+                    // std::cout << "Thread: " << thread_id << " Guess / Lane " << write_guess << " / " << write_lane << "\n";
+                    if (omp_test_lock(&locks[write_guess])) {
+                        for (int color = 0; color < colors; color++) {
+                            // std::cout << "Thread: " << thread_id << " color / lane " << color << " / " << write_lane << "\n";
+                            data_out[write_guess][color] += scratch[thread_id][write_lane][color];
+                        }
+                        omp_unset_lock(&locks[write_guess]);
+                        // std::cout << "Thread: " << thread_id << " Wrote Guess - free now: " << write_guess << "\n";
+                        task_mask[thread_id][write_lane] = false;
+                        it = task_queue[thread_id].erase(it); // Erase returns the next iterator
+                    } else {
+                        ++it;
+                        // Only move to next element if task wasn't done (i.e., lock not acquired)
+                    }
+                }
+                try_once = false;
+            }
+        }
+        // clear queues - TODO assess how much is used here
+        // ! Fix this...
+        while (!task_queue[thread_id].empty()) {
+            auto pair = task_queue[thread_id].front();
+            int write_guess = pair.first;
+            int write_lane = pair.second;
+            std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
+            omp_set_lock(&locks[write_guess]);
+            for (int color = 0; color < colors; color++) {
+                data_out[write_guess][color] += scratch[thread_id][write_lane][color];
+            }
+            omp_unset_lock(&locks[write_guess]);
+            task_queue[thread_id].pop_front();
+        }
+    }
+}
+
 
 /**
  * Main routine
@@ -228,14 +323,18 @@ int main(int argc, char **argv) {
     char mode = '\0';
     unsigned int seed = 0; // Seed for random number generator
     int opt;
+    int capacity = 1; // Scratch capacity
     // Read program parameters
-    while ((opt = getopt(argc, argv, "i:o:n:m:l:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:c:n:m:l:s:")) != -1) {
         switch (opt) {
         case 'i':
             input_dim = atol(optarg);
             break;
         case 'o':
             output_dim = atol(optarg);
+            break;
+        case 'c':
+            capacity = atoi(optarg);
             break;
         case 'n':
             num_threads = atoi(optarg);
@@ -281,11 +380,19 @@ int main(int argc, char **argv) {
 
     // Initialize Parallel Constructs
     omp_set_num_threads(num_threads);
-    std::vector<std::vector<std::vector<double>>> scratch(num_threads, std::vector<std::vector<double>>(input_dim, std::vector<double>(output_dim, 0.0)));
+
+    std::vector<std::vector<std::vector<double>>> scratch;
+    if (mode == 'P' || mode == 'R' || mode == 'C') {
+        int scratch_cap = input_dim;
+        if (mode == 'C') {
+            scratch_cap = capacity;
+        }
+        scratch = std::vector<std::vector<std::vector<double>>>(num_threads, std::vector<std::vector<double>>(scratch_cap, std::vector<double>(output_dim, 0.0)));
+    }
 
     // std::vector<std::vector<std::vector<double>>> scratch(num_threads, std::vector<double>(input_dim, std::vector<double>(output_dim, 0.0f)));
     std::vector<omp_lock_t> locks;
-    if (mode == 'P') {
+    if (mode == 'P' || mode == 'C') {
         int guesses = static_cast<int>(data_index.size());
         locks = std::vector<omp_lock_t>(guesses); 
         // init locks
@@ -336,6 +443,9 @@ int main(int argc, char **argv) {
     }
     if (mode == 'P') {
         reduction_scatter_reduce_pipeline(data_in, data_index, parallel_out, scratch, locks);
+    }
+    if (mode == 'C') {
+        reduction_scatter_reduce_cap(data_in, data_index, parallel_out, scratch, locks);
     }
 
     auto parallel_end = timestamp;
