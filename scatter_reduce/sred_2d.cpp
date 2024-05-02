@@ -205,8 +205,8 @@ void reduction_scatter_reduce_pipeline(std::vector<double> &data_in, // input
         // clear queues - only hit on large problems
         auto it = task_queue[thread_id].begin();
         while (it != task_queue[thread_id].end()) {
-            std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
             int write_guess = *it;
+            std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
             omp_set_lock(&locks[write_guess]);
             for (int color = 0; color < colors; color++) {
                 data_out[write_guess][color] += scratch[thread_id][write_guess][color];
@@ -298,13 +298,13 @@ void reduction_scatter_reduce_cap(std::vector<double> &data_in, // input
         // clear queues - TODO assess how much is used here
         auto it = task_queue[thread_id].begin();
         while (it != task_queue[thread_id].end()) {
-            std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
             auto pair = task_queue[thread_id].front();
             int write_guess = pair.first;
             int write_lane = pair.second;
+            std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
             omp_set_lock(&locks[write_guess]);
             for (int color = 0; color < colors; color++) {
-                data_out[write_guess][color] += scratch[thread_id][write_guess][color];
+                data_out[write_guess][color] += scratch[thread_id][write_lane][color];
             }
             omp_unset_lock(&locks[write_guess]);
             ++it;
