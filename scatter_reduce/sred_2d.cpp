@@ -27,6 +27,8 @@
 
 void usage(char *exec_name){
     // Expecting data to be square, prior to be arbitrary weights of length
+    // -i guess/candidate
+    // -o colors
     std::cout << "Usage:\n" << exec_name << "-i <data dimension> -o <output dimension> -n <thread count> -m <mode> [-l <number of locks>]\n";
     std::cout << "-m: 'L': lock based implementation, 'R': reduction based implementation, 'S': Serial\n";
     return;
@@ -73,8 +75,6 @@ void scatter_reduce(std::vector<std::vector<int>> &index,
 
 /**
  * A reduction based scatter reduce
- * @param scratch - a  <num_proc> * <data_out.size()> temporary matrix for thread
- *                  local aggregation (better than local allocation)
 */
 void reduction_scatter_reduce(std::vector<double> &data_in, // input
                               std::vector<std::vector<int>> &data_index, // output by input
@@ -95,7 +95,6 @@ void reduction_scatter_reduce(std::vector<double> &data_in, // input
                 idx = data_index[guess][candidate];
                 scratch[thread_id][guess][idx] += data_in[candidate];
             }
-            // Hm.. do I accumulate across guess? That doesn't seem ok
             #pragma omp critical
             {
                 for(int color = 0; color < colors; color++){
@@ -107,23 +106,48 @@ void reduction_scatter_reduce(std::vector<double> &data_in, // input
     }
 }
 
-// void reduction_scatter_reduce_omp(std::vector<double> &data_in,
-//                               std::vector<std::vector<int>> &data_index,
-//                               std::vector<std::vector<double>> &data_out){
-//     int n = static_cast<int>(data_in.size());
-//     int m = static_cast<int>(data_out.size());
+void reduction_scatter_reduce_omp(std::vector<double> &data_in, // input
+                              std::vector<std::vector<int>> &data_index, // guess by inputs
+                            //   std::vector<std::vector<double>> &data_out){ // guess by color/output 
+                              std::vector<double> &data_out_flat){ // guess by color/output 
+    int guesses = static_cast<int>(data_index.size());
+    int colors = static_cast<int>(data_out_flat.size() / guesses);
+    // std::cout << "Data in Size: " << data_in.size() << "\n";
+    // std::cout << "Data Index Size: " << data_index.size() << "x" << data_index[0].size() <<  "\n";
+    // std::cout << "Guesses: " << guesses << " Colors: " << colors << "\n";
+    // std::cout << "Data Out Size: " << data_out_flat.size() << "\n";
+    double* data_out_ptr = data_out_flat.data();
+    // Manual
+    #pragma omp parallel // Local Aggregation Step
+    {
+        std::vector<double> local_sum(colors, 0.0); // Each thread has a local sum array
+        int idx;
 
-//     double* data_out_ptr = data_out.data();
-//     #pragma omp parallel
-//     {
-//         int idx;
-//         #pragma omp for reduction(+:data_out_ptr[:m])
-//         for(int i = 0; i < n; i++){
-//             idx = data_index[i];
-//             data_out_ptr[idx] += data_in[i];
-//         }
-//     }
-// }
+        #pragma omp for nowait // Distribute loop iterations across threads
+        for (int guess = 0; guess < guesses; guess++) {
+            local_sum.assign(colors, 0.0); // Reset local sum
+            for (int candidate = 0; candidate < data_index[guess].size(); candidate++) {
+                idx = data_index[guess][candidate];
+                local_sum[idx] += data_in[candidate]; // Accumulate locally
+            }
+            #pragma omp critical // Safely add local sums to the main array
+            for (int i = 0; i < colors; i++) {
+                data_out_flat[guess * colors + i] += local_sum[i];
+            }
+        }
+
+        // OMP 
+        // int idx;
+        // for (int guess = 0; guess < guesses; guess++){
+        //     #pragma omp for reduction(+:data_out_ptr[guess * colors:colors]) // syntax is start:length
+        //     for(int candidate = 0; candidate < data_index[guess].size(); candidate++){
+        //         idx = data_index[guess][candidate];
+        //         data_out_ptr[guess * colors + idx] += data_in[candidate];
+        //     }
+        // }
+    }
+    // TODO experiment with reduction no wait (intuitively, like pipeline parallelism)
+}
 
 /**
  * Main routine
@@ -199,6 +223,19 @@ int main(int argc, char **argv) {
     }
     std::vector<std::vector<double>> serial_out(input_dim, std::vector<double>(output_dim, 0.0f));
     std::vector<std::vector<double>> parallel_out(input_dim, std::vector<double>(output_dim, 0.0f));
+    std::vector<double> parallel_out_flat(input_dim * output_dim, 0.0f); // for some reason, reduce fails for off by one at large IO dims.
+
+    // Print the inputs
+    // for (long i = 0; i < input_dim; i++){
+    //     for (long j = 0; j < input_dim; j++){
+    //         printf("%d ", data_index[i][j]);
+    //     }
+    //     printf("\n");
+    // }
+
+    // for (long i = 0; i < input_dim; i++){
+    //     printf("%f ", data_in[i]);
+    // }
 
     auto serial_start = timestamp;
 
@@ -216,11 +253,20 @@ int main(int argc, char **argv) {
     if(mode == 'R'){ // Reduction Based Scatter Reduce
         reduction_scatter_reduce(data_in, data_index, parallel_out, scratch);
     }
-    // if (mode == 'M') {
-    //     reduction_scatter_reduce_omp(data_in, data_index, parallel_out);
-    // }
+    if (mode == 'M') {
+        // reduction_scatter_reduce_omp(data_in, data_index, parallel_out);
+        reduction_scatter_reduce_omp(data_in, data_index, parallel_out_flat);
+    }
 
     auto parallel_end = timestamp;
+    if (mode == 'M') {
+        // write back in
+        for (long i = 0; i < input_dim; i++){
+            for (long j = 0; j < output_dim; j++){
+                parallel_out[i][j] = parallel_out_flat[i * output_dim + j];
+            }
+        }
+    }
 
     for(auto l:locks){
         omp_destroy_lock(&l);
