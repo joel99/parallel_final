@@ -202,15 +202,17 @@ void reduction_scatter_reduce_pipeline(std::vector<double> &data_in, // input
                 }
             }
         }
-        // clear queues - doesn't appear to ever get hit..
-        for (auto it = 0; it < task_queue[thread_id].size(); it++) {
-            int write_guess = task_queue[thread_id].front();
+        // clear queues - only hit on large problems
+        auto it = task_queue[thread_id].begin();
+        while (it != task_queue[thread_id].end()) {
             std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
+            int write_guess = *it;
             omp_set_lock(&locks[write_guess]);
             for (int color = 0; color < colors; color++) {
                 data_out[write_guess][color] += scratch[thread_id][write_guess][color];
             }
             omp_unset_lock(&locks[write_guess]);
+            ++it;
         }
     }
 }
@@ -294,18 +296,18 @@ void reduction_scatter_reduce_cap(std::vector<double> &data_in, // input
             }
         }
         // clear queues - TODO assess how much is used here
-        // ! Fix this...
-        while (!task_queue[thread_id].empty()) {
+        auto it = task_queue[thread_id].begin();
+        while (it != task_queue[thread_id].end()) {
+            std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
             auto pair = task_queue[thread_id].front();
             int write_guess = pair.first;
             int write_lane = pair.second;
-            std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
             omp_set_lock(&locks[write_guess]);
             for (int color = 0; color < colors; color++) {
-                data_out[write_guess][color] += scratch[thread_id][write_lane][color];
+                data_out[write_guess][color] += scratch[thread_id][write_guess][color];
             }
             omp_unset_lock(&locks[write_guess]);
-            task_queue[thread_id].pop_front();
+            ++it;
         }
     }
 }
