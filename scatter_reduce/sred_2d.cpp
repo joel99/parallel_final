@@ -2,6 +2,7 @@
  * Testing file for different implementations of scatter reduce
  * Reflect the wordle challenge better by considering a 2D index to scatter of a 1D prior.
  * 2D index is Guess x Candidate (for simplicity, assume square = data dim, and scattered prior weight is also 1D = data dim)
+ * Output dim is analogous to colors/target bins
  * Consider: Cache-advantage of reduction based multi-round, and lock protected round robin writes.
 */
 
@@ -56,41 +57,18 @@ int i_rand(int low, int high){
 *********************************************************************/
 
 // Serial
-void scatter_reduce(std::vector<std::vector<int>> &index, std::vector<double> &in,
-    std::vector<std::vector<double>> &out){
-    size_t n = index.size();
+void scatter_reduce(std::vector<std::vector<int>> &index, 
+                    std::vector<double> &in,
+                    std::vector<std::vector<double>> &out){
+    size_t guesses = index.size();
+    size_t candidates = index[0].size();
     int idx;
-    for(size_t i = 0; i < n; i++){
-        for (size_t j = 0; j < index[i].size(); j++){
-            idx = index[i][j];
-            out[i][idx] += in[i];
+    for(size_t guess = 0; guess < guesses; guess++){
+        for (size_t cand = 0; cand < candidates; cand++){
+            idx = index[guess][cand];
+            out[guess][idx] += in[cand];
         }
     }
-}
-
-/**
- * A simple lock based scatter reduce without any data preprocessing. Assumes even division of locks into output slots.
- * @param locks a vector of initialized omp locks
-*/
-void lock_scatter_reduce(std::vector<double> &data_in,
-                         std::vector<int> &data_index,
-                         std::vector<double> &data_out,
-                         std::vector<omp_lock_t> &locks){
-    // Compute the span of each lock
-    int n = static_cast<int>(data_in.size());
-    long lock_span = ceil_xdivy(data_out.size(), locks.size());
-    #pragma omp parallel for shared(locks)
-    // #pragma omp parallel for schedule(dynamic, TASKSIZE) shared(locks) # Dynamic unneeded for fixed benchmark
-        for(int i = 0; i < n; i++){
-            int idx = data_index[i];
-            int lock_idx = idx/lock_span;
-            omp_set_lock(&locks[lock_idx]);
-            data_out[idx] += data_in[i];
-            omp_unset_lock(&locks[lock_idx]);
-            // Needs to release lock immediately due to data access indirections (trying not to release is miserably slow)
-        }
-
-    return;
 }
 
 /**
@@ -98,49 +76,54 @@ void lock_scatter_reduce(std::vector<double> &data_in,
  * @param scratch - a  <num_proc> * <data_out.size()> temporary matrix for thread
  *                  local aggregation (better than local allocation)
 */
-void reduction_scatter_reduce(std::vector<double> &data_in,
-                              std::vector<int> &data_index,
-                              std::vector<double> &data_out,
-                              std::vector<std::vector<double>> &scratch){
-    int n = static_cast<int>(data_in.size());
-    int m = static_cast<int>(data_out.size());
+void reduction_scatter_reduce(std::vector<double> &data_in, // input
+                              std::vector<std::vector<int>> &data_index, // output by input
+                              std::vector<std::vector<double>> &data_out, // input by color/output 
+                              std::vector<std::vector<std::vector<double>>> &scratch){ // thread by input by color/output
+    int guesses = static_cast<int>(data_index.size());
+    int colors = static_cast<int>(data_out[0].size());
+    std::cout << "Guesses: " << guesses << " Colors: " << colors << "\n";
+
     // Manual
     #pragma omp parallel // Local Aggregation Step
     {
         int thread_id = omp_get_thread_num();
         int idx;
-        #pragma omp for // Dynamic overhead is terrible here
-        // #pragma omp for schedule(dynamic, TASKSIZE)
-            for(int i = 0; i < n; i++){
-                idx = data_index[i];
-                scratch[thread_id][idx] += data_in[i];
+        for (int guess = 0; guess < guesses; guess++){
+            #pragma omp for
+            for(int candidate = 0; candidate < data_index[guess].size(); candidate++){
+                idx = data_index[guess][candidate];
+                scratch[thread_id][guess][idx] += data_in[candidate];
             }
+            // Hm.. do I accumulate across guess? That doesn't seem ok
             #pragma omp critical
             {
-                for(int i = 0; i < m; i++){
-                    data_out[i] += scratch[thread_id][i];
+                for(int color = 0; color < colors; color++){
+                    data_out[guess][color] += scratch[thread_id][guess][color];
                 }
             }
-    }
-}
 
-void reduction_scatter_reduce_omp(std::vector<double> &data_in,
-                              std::vector<int> &data_index,
-                              std::vector<double> &data_out){
-    int n = static_cast<int>(data_in.size());
-    int m = static_cast<int>(data_out.size());
-
-    double* data_out_ptr = data_out.data();
-    #pragma omp parallel
-    {
-        int idx;
-        #pragma omp for reduction(+:data_out_ptr[:m])
-        for(int i = 0; i < n; i++){
-            idx = data_index[i];
-            data_out_ptr[idx] += data_in[i];
         }
     }
 }
+
+// void reduction_scatter_reduce_omp(std::vector<double> &data_in,
+//                               std::vector<std::vector<int>> &data_index,
+//                               std::vector<std::vector<double>> &data_out){
+//     int n = static_cast<int>(data_in.size());
+//     int m = static_cast<int>(data_out.size());
+
+//     double* data_out_ptr = data_out.data();
+//     #pragma omp parallel
+//     {
+//         int idx;
+//         #pragma omp for reduction(+:data_out_ptr[:m])
+//         for(int i = 0; i < n; i++){
+//             idx = data_index[i];
+//             data_out_ptr[idx] += data_in[i];
+//         }
+//     }
+// }
 
 /**
  * Main routine
@@ -207,7 +190,9 @@ int main(int argc, char **argv) {
 
     // Initialize Parallel Constructs
     omp_set_num_threads(num_threads);
-    std::vector<std::vector<double>> scratch(num_threads, std::vector<double>(output_dim, 0.0f));
+    std::vector<std::vector<std::vector<double>>> scratch(num_threads, std::vector<std::vector<double>>(input_dim, std::vector<double>(output_dim, 0.0)));
+
+    // std::vector<std::vector<std::vector<double>>> scratch(num_threads, std::vector<double>(input_dim, std::vector<double>(output_dim, 0.0f)));
     std::vector<omp_lock_t>locks(num_locks);
     for(int i = 0; i < num_locks; i++){
         omp_init_lock(&locks[i]);
@@ -228,12 +213,9 @@ int main(int argc, char **argv) {
     // if(mode == 'L'){ // lock
     //     lock_scatter_reduce(data_in, data_index, parallel_out, locks);
     // }
-    // if(mode == 'R'){ // Reduction Based Scatter Reduce
-    //     reduction_scatter_reduce(data_in, data_index, parallel_out, scratch);
-    // }
-    // if (mode == 'F') {
-    //     lock_free_scatter_reduce(data_in, data_index, parallel_out);
-    // }
+    if(mode == 'R'){ // Reduction Based Scatter Reduce
+        reduction_scatter_reduce(data_in, data_index, parallel_out, scratch);
+    }
     // if (mode == 'M') {
     //     reduction_scatter_reduce_omp(data_in, data_index, parallel_out);
     // }
