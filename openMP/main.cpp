@@ -172,12 +172,11 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
                             parallel_scatter_reduce(pattern_matrix[word_idx], priors,
                                 probability_scratch);
+                            
+                            parallel_entropy_compute(probability_scratch, prior_sum, out);
 
-                            out = 0.0f;
-                            parallel_entropy_compute(probability_scratch, 
-                                prior_sum + priors[word_idx] / prior_sum, out);
                             #pragma omp single nowait
-                            entropys[word_idx] = out;
+                            entropys[word_idx] = out + priors[word_idx] / prior_sum;
                         }
                     }
                 }
@@ -373,15 +372,23 @@ int solver(priors_t &priors,
                                 probability_scratch[i] = 0.0f;
                             }
 
-                            parallel_scatter_reduce(pattern_matrix[word_idx], priors,
+                            #pragma omp single
+                            scatter_reduce(pattern_matrix[word_idx], priors,
+                            // parallel_scatter_reduce(pattern_matrix[word_idx], priors,
                                 probability_scratch);
 
-                            out = 0.0f;
-                            parallel_entropy_compute(probability_scratch, 
-                                prior_sum + priors[word_idx] / prior_sum, out);
-                            #pragma omp single nowait
-                            entropys[word_idx] = out;
+                            #pragma omp single
+                            entropys[word_idx] = entropy_compute(probability_scratch, prior_sum) + priors[word_idx] / prior_sum;
+                            // parallel_entropy_compute(probability_scratch, prior_sum, out);
+                            // out = 0.0f;
+                            // #pragma omp for reduction(+:out)
+                            // for(size_t i = 0; i < probability_scratch.size(); i++){
+                            //     out += normalize_entropy(probability_scratch[i], prior_sum);
+                            // }
+                            // #pragma omp single
+                            // entropys[word_idx] = out + priors[word_idx] / prior_sum;
                         }
+                        #pragma omp barrier
                     }
                 }
             } else if (mode == 'h') {

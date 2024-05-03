@@ -117,10 +117,10 @@ float entropy_compute(std::vector<float> floats, float normalize){
 //     return out;
 // }
 
-float parallel_entropy_compute(std::vector<float> floats, float normalize, float &out){
+void parallel_entropy_compute(std::vector<float> floats, float normalize, float& out){
+    out = 0.0;
     #pragma omp for reduction(+:out)
     for(size_t i = 0; i < floats.size(); i++){
         out += normalize_entropy(floats[i], normalize);
     }
-    return out;
 }

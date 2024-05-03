@@ -71,6 +71,8 @@ float entropy_compute(std::vector<float> floats, float normalize = 1.0f);
  * @param noramlize - The constant multiple applied to each term to normalize
  * into a probability distribution.
 */
-float parallel_entropy_compute(std::vector<float> floats, float normalize, float &out);
+void parallel_entropy_compute(std::vector<float> floats, float normalize, float& out);
 
+
+float normalize_entropy(float in, float total);
 #endif /* WORD_H */
