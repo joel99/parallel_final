@@ -361,26 +361,42 @@ int solver(priors_t &priors,
                 if (rebuild) {
                     exit(1);
                 } else {
-                    // candidate_parallel from sred.cpp
+                    // candidate_parallel from sred_2d.cpp
                     probability_scratch.resize(num_patterns);  // Resize before the parallel block
-                    float out = 0.0f;
+                    int candidates = static_cast<int>((*patterns_ref)[0].size());
+                    std::cout << "Candidates: " << candidates << "\n";
+                    std::cout << "Colors: " << num_patterns << "\n";
+                    float* data_out_ptr = probability_scratch.data(); // omp style
+
                     #pragma omp parallel
                     {
-                        for(int word_idx = 0; word_idx < num_words; word_idx++){
+                        int idx;
+                        for (int word_idx = 0; word_idx < num_words; word_idx++){
                             #pragma omp for
                             for (int i = 0; i < num_patterns; i++){
                                 probability_scratch[i] = 0.0f;
                             }
 
-                            parallel_scatter_reduce(pattern_matrix[word_idx], priors,
-                                probability_scratch);
+                            // #pragma omp for reduction(+:data_out_ptr[:num_patterns])
+                            #pragma omp single
+                            for(int candidate = 0; candidate < candidates; candidate++){
+                                idx = (*patterns_ref)[word_idx][candidate];
+                                // idx = (*patterns_ref)[guess][candidate];
+                                data_out_ptr[idx] += (*priors_ref)[candidate];
+                            }
 
-                            parallel_entropy_compute(probability_scratch, prior_sum, out);
+                            #pragma omp single
+                            {
+                            entropys[word_idx] = entropy_compute(probability_scratch, prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
+                            }
+                            // parallel_scatter_reduce(pattern_matrix[word_idx], priors,
+                                // probability_scratch);
+                            // parallel_entropy_compute(probability_scratch, prior_sum, out);
                             
-                            #pragma omp single nowait
-                            entropys[word_idx] = out + priors[word_idx] / prior_sum;
+                            // #pragma omp single nowait
+                            // entropys[word_idx] = out + priors[word_idx] / prior_sum;
+                            // }
                         }
-                        #pragma omp barrier
                     }
                 }
             } else if (mode == 'h') {
