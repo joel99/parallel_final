@@ -108,7 +108,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
     std::vector<index_t>* src_idx_ref = &src_idx;  
     priors_t* priors_ref = &priors; 
     std::vector<std::vector<coloring_t>>* patterns_ref = &pattern_matrix; 
-    if (mode == 'r') { // Resize
+    if (rebuild) { // Resize
         src_idx_scratch.resize(num_words);
         priors_scratch.resize(num_words);
         patterns_scratch.resize(num_words);
@@ -124,30 +124,16 @@ int_fast64_t solver_verbose(wordlist_t &words,
         random_select = false;
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            if (mode != 'r') {
+            if (!rebuild) {
                 guess = arg_max(priors);
             } else {
-                guess = src_idx_scratch[0];
-                // guess = src_idx_ref[0];
+                guess = (*src_idx_ref)[0];
             }
             random_select = true;
         }
         else{ // More than 2 words: Compute the entropy for ALL words
             auto compute_start = timestamp;
-            if (mode != 'r') {
-                #pragma omp parallel for schedule(dynamic) private(probability_scratch)
-                for(int word_idx = 0; word_idx < num_words; word_idx++){
-                    probability_scratch.assign(num_patterns, 0.0f);
-                    // Pool up the total word weights for each pattern
-                    scatter_reduce(pattern_matrix[word_idx], priors,
-                        probability_scratch);
-                    // Normalize the pooled weights into a probability distribution
-                    // Compute the entropy via map reduce
-                    entropys[word_idx] = entropy_compute(probability_scratch, 
-                        prior_sum)+ (priors[word_idx] / prior_sum);
-                }
-            } else {
-                #pragma omp parallel for schedule(dynamic) private(probability_scratch)
+            if (mode == 's') {
                 for(int word_idx = 0; word_idx < num_words; word_idx++){
                     probability_scratch.assign(num_patterns, 0.0f);
                     scatter_reduce((*patterns_ref)[word_idx], *priors_ref,
@@ -155,6 +141,48 @@ int_fast64_t solver_verbose(wordlist_t &words,
                     entropys[word_idx] = entropy_compute(probability_scratch, 
                         prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
                 }
+            } else if (mode == 'g') {
+                #pragma omp parallel for schedule(dynamic) private(probability_scratch)
+                for(int word_idx = 0; word_idx < num_words; word_idx++){
+                    probability_scratch.assign(num_patterns, 0.0f);
+                    // Pool up the total word weights for each pattern
+                    // scatter_reduce(pattern_matrix[word_idx], priors,
+                    scatter_reduce((*patterns_ref)[word_idx], *priors_ref,
+                        probability_scratch);
+                    // Normalize the pooled weights into a probability distribution
+                    // Compute the entropy via map reduce, add the prior probability
+                    entropys[word_idx] = entropy_compute(probability_scratch, 
+                        // prior_sum) + (priors_scratch[word_idx] / prior_sum);
+                        prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
+                }
+            } else if (mode == 'c') { // Candidate parallel - absurdly slow
+                if (rebuild) {
+                    exit(1);
+                } else {
+                    // candidate_parallel from sred.cpp
+                    probability_scratch.resize(num_patterns);  // Resize before the parallel block
+                    float out = 0.0f;
+                    #pragma omp parallel
+                    {
+                        for(int word_idx = 0; word_idx < num_words; word_idx++){
+                            #pragma omp for
+                            for (int i = 0; i < num_patterns; i++){
+                                probability_scratch[i] = 0.0f;
+                            }
+
+                            parallel_scatter_reduce(pattern_matrix[word_idx], priors,
+                                probability_scratch);
+
+                            out = 0.0f;
+                            parallel_entropy_compute(probability_scratch, 
+                                prior_sum + priors[word_idx] / prior_sum, out);
+                            #pragma omp single nowait
+                            entropys[word_idx] = out;
+                        }
+                    }
+                }
+            } else if (mode == 'h') {
+                exit(1);
             }
             auto compute_end = timestamp;
             // Find the word that maximizes the expected entropy entropy.
@@ -169,7 +197,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
         /******************** Update Phase **********************/
         auto update_start = timestamp;
-        if (mode != 'r') {
+        if (!rebuild) {
             words_remaining = 0;
             prior_sum = 0.0f;
             for(int i = 0; i < num_words; i++){
@@ -222,13 +250,13 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
         std::cout << "Remaining Uncertainty: " << uncertainty << "\n";
         std::cout << "Remaining Words (" << words_remaining <<"):\n";
-        if (mode != 'r') {
+        if (!rebuild) {
             for(int i = 0; i < num_words; i++){
                 if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
             }
         } else {
             for(int i = 0; i < words_remaining; i++){
-                word_print(words[src_idx_scratch[i]], 0, ' ');
+                word_print(words[(*src_idx_ref)[i]], 0, ' ');
             }
         }
         std::cout << "\n";
@@ -316,8 +344,7 @@ int solver(priors_t &priors,
                     entropys[word_idx] = entropy_compute(probability_scratch, 
                         prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
                 }
-            }
-            if (mode == 'g') { // More than 2 words: Compute the entropy for ALL words
+            } else if (mode == 'g') { // More than 2 words: Compute the entropy for ALL words
                 #pragma omp parallel for schedule(dynamic) private(probability_scratch)
                 for(int word_idx = 0; word_idx < num_words; word_idx++){
                     probability_scratch.assign(num_patterns, 0.0f);
