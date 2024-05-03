@@ -312,6 +312,33 @@ void reduction_scatter_reduce_cap(std::vector<double> &data_in, // input
     }
 }
 
+void reduction_scatter_reduce_row(std::vector<double> &data_in, // input
+                              std::vector<std::vector<int>> &data_index, // output by input
+                              std::vector<std::vector<double>> &data_out // input by color/output 
+                            ){
+    /*
+        Guess-parallel
+        This version uses limited capacity scratch, so we cannot have arbitrarily large queues.
+    */
+    int guesses = static_cast<int>(data_index.size());
+    int candidates = static_cast<int>(data_index[0].size());
+    int colors = static_cast<int>(data_out[0].size());
+    std::cout << "Guesses: " << guesses << " Colors: " << colors << " \n";
+
+    int num_threads = omp_get_max_threads();
+    #pragma omp parallel
+    {
+        int thread_id = omp_get_thread_num();
+        int idx;
+        #pragma omp for nowait
+        for (int guess = 0; guess < guesses; guess++){
+            for(int candidate = 0; candidate < candidates; candidate++){
+                idx = data_index[guess][candidate];
+                data_out[guess][idx] += data_in[candidate];
+            }
+        }
+    }
+}
 
 /**
  * Main routine
@@ -408,8 +435,14 @@ int main(int argc, char **argv) {
         }
     }
     std::vector<std::vector<double>> serial_out(input_dim, std::vector<double>(output_dim, 0.0f));
-    std::vector<std::vector<double>> parallel_out(input_dim, std::vector<double>(output_dim, 0.0f));
-    std::vector<double> parallel_out_flat(input_dim * output_dim, 0.0f); // for some reason, reduce fails for off by one at large IO dims.
+    std::vector<std::vector<double>> parallel_out;
+    std::vector<double> parallel_out_flat;
+    if (mode != 'S') {
+        parallel_out = std::vector<std::vector<double>>(input_dim, std::vector<double>(output_dim, 0.0f));
+    }
+    if (mode == 'M') {
+        parallel_out_flat = std::vector<double>(input_dim * output_dim, 0.0f);
+    }
 
     // Print the inputs
     // for (long i = 0; i < input_dim; i++){
@@ -423,6 +456,7 @@ int main(int argc, char **argv) {
     //     printf("%f ", data_in[i]);
     // }
 
+    std::cout << "Starting...\n";
     auto serial_start = timestamp;
 
     // Test Serial Implementation
@@ -449,6 +483,9 @@ int main(int argc, char **argv) {
     if (mode == 'C') {
         reduction_scatter_reduce_cap(data_in, data_index, parallel_out, scratch, locks);
     }
+    if (mode == 'G') {
+        reduction_scatter_reduce_row(data_in, data_index, parallel_out);
+    }
 
     auto parallel_end = timestamp;
 
@@ -466,13 +503,14 @@ int main(int argc, char **argv) {
         omp_destroy_lock(&l);
     }
     std::cout << "serial computation time:   " << TIME(serial_start, serial_end) << "\n";
-    std::cout << "parallel computation time: " << TIME(parallel_start, parallel_end) << "\n";
-    std::cout << "Parallel Speedup:" << TIME(serial_start, serial_end) / TIME(parallel_start, parallel_end) << "\n";
-
-    for(long i = 0; i < output_dim; i++){
-        for (long j = 0; j < input_dim; j++){
-            if(!is_zero(serial_out[j][i] -parallel_out[j][i])){
-                printf("Parallel Solution Mismatch at [%lu][%lu]: Expected %f, Actual: %f\n", j, i, serial_out[j][i], parallel_out[j][i]);
+    if (mode != 'S') {
+        std::cout << "parallel computation time: " << TIME(parallel_start, parallel_end) << "\n";
+        std::cout << "Parallel Speedup:" << TIME(serial_start, serial_end) / TIME(parallel_start, parallel_end) << "\n";
+        for(long i = 0; i < output_dim; i++){
+            for (long j = 0; j < input_dim; j++){
+                if(!is_zero(serial_out[j][i] -parallel_out[j][i])){
+                    printf("Parallel Solution Mismatch at [%lu][%lu]: Expected %f, Actual: %f\n", j, i, serial_out[j][i], parallel_out[j][i]);
+                }
             }
         }
     }
