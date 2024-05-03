@@ -83,7 +83,8 @@ int_fast64_t solver_verbose(wordlist_t &words,
             std::vector<std::vector<coloring_t>> &patterns_scratch,
             int &answer,
             float prior_sum,
-            char mode){
+            char mode,
+            bool rebuild){
     auto in_start = timestamp;
     // Initialize Additional Solver Data
     int num_words = pattern_matrix.size();
@@ -267,7 +268,8 @@ int solver(priors_t &priors,
             std::vector<std::vector<coloring_t>> &patterns_scratch,
             int &answer,
             float prior_sum,
-            char mode
+            char mode,
+            bool rebuild
             ){
     // Initialize Additional Solver Data
     int num_words = pattern_matrix.size();
@@ -463,10 +465,11 @@ int main(int argc, char **argv) {
     int num_threads = 0;
     bool verbose = false;
     bool rand_prior = false;
+    bool rebuild = false;
     int opt;
     char mode = '\0';
     // Read program parameters
-    while ((opt = getopt(argc, argv, "f:n:p:t:m:x:rv")) != -1) {
+    while ((opt = getopt(argc, argv, "f:n:p:t:m:x:b:rv")) != -1) {
         switch (opt) {
         case 'f':
             text_filename = optarg;
@@ -485,6 +488,9 @@ int main(int argc, char **argv) {
             break;
         case 'x':
             mode = *optarg;
+            break;
+        case 'b':
+            rebuild = true;
             break;
         case 'r':
             rand_prior = true;
@@ -576,12 +582,23 @@ int main(int argc, char **argv) {
     std::vector<std::vector<coloring_t>> patterns_scratch = pattern_matrix;
 
     std::cout << "Pre-processing: " << TIME(precompute_start, precompute_end) << "\n";
-    if (mode == 'r') {
+    if (rebuild) {
         std::cout << "Rebuild\n";
-    } else if (mode == 'c') {
-        std::cout << "Parallel Mode: Candidate Parallel\n";
     } else {
+        std::cout << "No Rebuild\n";
+    }
+    if (mode == 'c') {
+        std::cout << "Parallel Mode: Candidate Parallel\n";
+    } else if (mode == 'g') {
         std::cout << "Parallel Mode: Guess Parallel\n";
+    } else if (mode == 's') {
+        std::cout << "Parallel Mode: Serial\n";
+        // not implemented, exit
+        exit(1);
+    } else if (mode == 'h') {
+        std::cout << "Parallel Mode: Hybrid\n";
+        // not implemented, exit
+        exit(1);
     }
     // Benchmark all words in the test set.
     double time_total;
@@ -607,7 +624,8 @@ int main(int argc, char **argv) {
                 patterns_scratch,
                 answer_index, 
                 priors_sum, 
-                mode);
+                mode,
+                rebuild);
         }
         else{
             rounds = solver(
@@ -619,7 +637,8 @@ int main(int argc, char **argv) {
                 patterns_scratch,
                 answer_index,  
                 priors_sum, 
-                mode);
+                mode,
+                rebuild);
         }
         std::cout << "<" << rounds << ">\n";
     }
