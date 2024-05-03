@@ -83,7 +83,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
             std::vector<std::vector<coloring_t>> &patterns_scratch,
             int &answer,
             float prior_sum,
-            int mode){
+            char mode){
     auto in_start = timestamp;
     // Initialize Additional Solver Data
     int num_words = pattern_matrix.size();
@@ -107,7 +107,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
     std::vector<index_t>* src_idx_ref = &src_idx;  
     priors_t* priors_ref = &priors; 
     std::vector<std::vector<coloring_t>>* patterns_ref = &pattern_matrix; 
-    if (mode == 2) { // Resize
+    if (mode == 'r') { // Resize
         src_idx_scratch.resize(num_words);
         priors_scratch.resize(num_words);
         patterns_scratch.resize(num_words);
@@ -123,7 +123,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
         random_select = false;
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            if (mode != 2) {
+            if (mode != 'r') {
                 guess = arg_max(priors);
             } else {
                 guess = src_idx_scratch[0];
@@ -133,7 +133,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
         }
         else{ // More than 2 words: Compute the entropy for ALL words
             auto compute_start = timestamp;
-            if (mode != 2) {
+            if (mode != 'r') {
                 #pragma omp parallel for schedule(dynamic) private(probability_scratch)
                 for(int word_idx = 0; word_idx < num_words; word_idx++){
                     probability_scratch.assign(num_patterns, 0.0f);
@@ -168,7 +168,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
         /******************** Update Phase **********************/
         auto update_start = timestamp;
-        if (mode != 2) {
+        if (mode != 'r') {
             words_remaining = 0;
             prior_sum = 0.0f;
             for(int i = 0; i < num_words; i++){
@@ -221,7 +221,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
         std::cout << "Remaining Uncertainty: " << uncertainty << "\n";
         std::cout << "Remaining Words (" << words_remaining <<"):\n";
-        if (mode != 2) {
+        if (mode != 'r') {
             for(int i = 0; i < num_words; i++){
                 if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
             }
@@ -255,7 +255,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
  * @param pattern_matrix the coloring pattern matrrx.
  * @param prior_sum - The sum of all prior weights, returned by the function
  *                    that generates the vector of prior weights
- * @param mode - 0 for guess parallel, 1 for candidate parallel
+ * @param mode - 'g' for guess parallel, 'c' for candidate parallel, 'h' for hybrid
  * @param answer - The WORD INDEX of the correct word.
  * @warning This function destructively modifies the priors vector.
 */
@@ -267,7 +267,7 @@ int solver(priors_t &priors,
             std::vector<std::vector<coloring_t>> &patterns_scratch,
             int &answer,
             float prior_sum,
-            int mode
+            char mode
             ){
     // Initialize Additional Solver Data
     int num_words = pattern_matrix.size();
@@ -287,7 +287,7 @@ int solver(priors_t &priors,
     std::vector<index_t>* src_idx_ref = &src_idx;  
     priors_t* priors_ref = &priors; 
     std::vector<std::vector<coloring_t>>* patterns_ref = &pattern_matrix; 
-    if (mode == 2) { // Resize
+    if (mode == 'r') { // Resize
         src_idx_scratch.resize(num_words);
         priors_scratch.resize(num_words);
         patterns_scratch.resize(num_words);
@@ -300,13 +300,13 @@ int solver(priors_t &priors,
         /******************** Entropy Computation Phase **********************/
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            if (mode != 2) {
+            if (mode != 'r') {
                 guess = arg_max(priors);
             } else {
                 guess = (*src_idx_ref)[0];
             }
         }
-        else if (mode == 0) { // More than 2 words: Compute the entropy for ALL words
+        else if (mode == 'g') { // More than 2 words: Compute the entropy for ALL words
             #pragma omp parallel for schedule(dynamic) private(probability_scratch)
             for(int word_idx = 0; word_idx < num_words; word_idx++){
                 probability_scratch.assign(num_patterns, 0.0f);
@@ -320,7 +320,7 @@ int solver(priors_t &priors,
             }
             // Find the word that maximizes the expected entropy entropy.
             guess = arg_max(entropys);
-        } else if (mode == 1) { // Candidate parallel - absurdly slow
+        } else if (mode == 'c') { // Candidate parallel - absurdly slow
             // So far the best result was achieved from an inner parallel for on just scatter_reduce, but that was still sub-serial
             probability_scratch.resize(num_patterns);  // Resize before the parallel block
             float out = 0.0f;
@@ -363,7 +363,7 @@ int solver(priors_t &priors,
         feedback = pattern_matrix[guess][answer];
         if(is_correct_guess(feedback)) return iters + 1;
         /******************** Update Phase **********************/
-        if (mode != 2) {
+        if (mode != 'r') {
             words_remaining = 0;
             prior_sum = 0.0f;
             #pragma omp parallel for schedule(dynamic, 64) reduction(+:words_remaining) reduction(+:prior_sum)
@@ -464,7 +464,7 @@ int main(int argc, char **argv) {
     bool verbose = false;
     bool rand_prior = false;
     int opt;
-    int mode = 0;
+    char mode = '\0';
     // Read program parameters
     while ((opt = getopt(argc, argv, "f:n:p:t:m:x:rv")) != -1) {
         switch (opt) {
@@ -484,7 +484,7 @@ int main(int argc, char **argv) {
             wordlen = atoi(optarg);
             break;
         case 'x':
-            mode = atoi(optarg);
+            mode = *optarg;
             break;
         case 'r':
             rand_prior = true;
@@ -576,9 +576,9 @@ int main(int argc, char **argv) {
     std::vector<std::vector<coloring_t>> patterns_scratch = pattern_matrix;
 
     std::cout << "Pre-processing: " << TIME(precompute_start, precompute_end) << "\n";
-    if (mode == 2) {
+    if (mode == 'r') {
         std::cout << "Rebuild\n";
-    } else if (mode == 1) {
+    } else if (mode == 'c') {
         std::cout << "Parallel Mode: Candidate Parallel\n";
     } else {
         std::cout << "Parallel Mode: Guess Parallel\n";

@@ -325,10 +325,8 @@ void reduction_scatter_reduce_row(std::vector<double> &data_in, // input
     int colors = static_cast<int>(data_out[0].size());
     std::cout << "Guesses: " << guesses << " Colors: " << colors << " \n";
 
-    int num_threads = omp_get_max_threads();
     #pragma omp parallel
     {
-        int thread_id = omp_get_thread_num();
         int idx;
         #pragma omp for nowait
         for (int guess = 0; guess < guesses; guess++){
