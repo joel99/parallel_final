@@ -289,7 +289,7 @@ int solver(priors_t &priors,
     std::vector<index_t>* src_idx_ref = &src_idx;  
     priors_t* priors_ref = &priors; 
     std::vector<std::vector<coloring_t>>* patterns_ref = &pattern_matrix; 
-    if (mode == 'r') { // Resize
+    if (rebuild) { // Resize
         src_idx_scratch.resize(num_words);
         priors_scratch.resize(num_words);
         patterns_scratch.resize(num_words);
@@ -302,62 +302,65 @@ int solver(priors_t &priors,
         /******************** Entropy Computation Phase **********************/
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            if (mode != 'r') {
+            if (!rebuild) {
                 guess = arg_max(priors);
             } else {
                 guess = (*src_idx_ref)[0];
             }
-        }
-        else if (mode == 'g') { // More than 2 words: Compute the entropy for ALL words
-            #pragma omp parallel for schedule(dynamic) private(probability_scratch)
-            for(int word_idx = 0; word_idx < num_words; word_idx++){
-                probability_scratch.assign(num_patterns, 0.0f);
-                // Pool up the total word weights for each pattern
-                scatter_reduce(pattern_matrix[word_idx], priors,
-                    probability_scratch);
-                // Normalize the pooled weights into a probability distribution
-                // Compute the entropy via map reduce, add the prior probability
-                entropys[word_idx] = entropy_compute(probability_scratch, 
-                    prior_sum) + (priors[word_idx] / prior_sum);
-            }
-            // Find the word that maximizes the expected entropy entropy.
-            guess = arg_max(entropys);
-        } else if (mode == 'c') { // Candidate parallel - absurdly slow
-            // So far the best result was achieved from an inner parallel for on just scatter_reduce, but that was still sub-serial
-            probability_scratch.resize(num_patterns);  // Resize before the parallel block
-            float out = 0.0f;
-            #pragma omp parallel
-            {
+        } else {
+            if (mode == 's') { // serial
                 for(int word_idx = 0; word_idx < num_words; word_idx++){
-                    #pragma omp for
-                    for (int i = 0; i < num_patterns; i++){
-                        probability_scratch[i] = 0.0f;
-                    }
-
-                    parallel_scatter_reduce(pattern_matrix[word_idx], priors,
+                    probability_scratch.assign(num_patterns, 0.0f);
+                    scatter_reduce((*patterns_ref)[word_idx], *priors_ref,
                         probability_scratch);
-
-                    out = 0.0f;
-                    parallel_entropy_compute(probability_scratch, 
-                        prior_sum + priors[word_idx] / prior_sum, out);
-                    #pragma omp single nowait
-                    entropys[word_idx] = out;
+                    entropys[word_idx] = entropy_compute(probability_scratch, 
+                        prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
                 }
             }
-            // Find the word that maximizes the expected entropy entropy.
-            guess = arg_max(entropys);
-        } else {
-            // Run a step
-            #pragma omp parallel for schedule(dynamic) private(probability_scratch)
-            for(int word_idx = 0; word_idx < num_words; word_idx++){
-                probability_scratch.assign(num_patterns, 0.0f);
-                // scatter_reduce(patterns_scratch[word_idx], priors_scratch,
-                scatter_reduce((*patterns_ref)[word_idx], *priors_ref,
-                    probability_scratch);
-                entropys[word_idx] = entropy_compute(probability_scratch, 
-                    // prior_sum) + (priors_scratch[word_idx] / prior_sum);
-                    prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
+            if (mode == 'g') { // More than 2 words: Compute the entropy for ALL words
+                #pragma omp parallel for schedule(dynamic) private(probability_scratch)
+                for(int word_idx = 0; word_idx < num_words; word_idx++){
+                    probability_scratch.assign(num_patterns, 0.0f);
+                    // Pool up the total word weights for each pattern
+                    // scatter_reduce(pattern_matrix[word_idx], priors,
+                    scatter_reduce((*patterns_ref)[word_idx], *priors_ref,
+                        probability_scratch);
+                    // Normalize the pooled weights into a probability distribution
+                    // Compute the entropy via map reduce, add the prior probability
+                    entropys[word_idx] = entropy_compute(probability_scratch, 
+                        // prior_sum) + (priors_scratch[word_idx] / prior_sum);
+                        prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
+                }
+            } else if (mode == 'c') { // Candidate parallel - absurdly slow
+                if (rebuild) {
+                    exit(1);
+                } else {
+                    // candidate_parallel from sred.cpp
+                    probability_scratch.resize(num_patterns);  // Resize before the parallel block
+                    float out = 0.0f;
+                    #pragma omp parallel
+                    {
+                        for(int word_idx = 0; word_idx < num_words; word_idx++){
+                            #pragma omp for
+                            for (int i = 0; i < num_patterns; i++){
+                                probability_scratch[i] = 0.0f;
+                            }
+
+                            parallel_scatter_reduce(pattern_matrix[word_idx], priors,
+                                probability_scratch);
+
+                            out = 0.0f;
+                            parallel_entropy_compute(probability_scratch, 
+                                prior_sum + priors[word_idx] / prior_sum, out);
+                            #pragma omp single nowait
+                            entropys[word_idx] = out;
+                        }
+                    }
+                }
+            } else if (mode == 'h') {
+                exit(1);
             }
+            // Find the word that maximizes the expected entropy entropy.
             guess = arg_max(entropys);
         }
 
@@ -365,7 +368,7 @@ int solver(priors_t &priors,
         feedback = pattern_matrix[guess][answer];
         if(is_correct_guess(feedback)) return iters + 1;
         /******************** Update Phase **********************/
-        if (mode != 'r') {
+        if (!rebuild) {
             words_remaining = 0;
             prior_sum = 0.0f;
             #pragma omp parallel for schedule(dynamic, 64) reduction(+:words_remaining) reduction(+:prior_sum)
@@ -469,7 +472,7 @@ int main(int argc, char **argv) {
     int opt;
     char mode = '\0';
     // Read program parameters
-    while ((opt = getopt(argc, argv, "f:n:p:t:m:x:b:rv")) != -1) {
+    while ((opt = getopt(argc, argv, "f:n:p:t:m:x:brv")) != -1) {
         switch (opt) {
         case 'f':
             text_filename = optarg;
@@ -593,8 +596,6 @@ int main(int argc, char **argv) {
         std::cout << "Parallel Mode: Guess Parallel\n";
     } else if (mode == 's') {
         std::cout << "Parallel Mode: Serial\n";
-        // not implemented, exit
-        exit(1);
     } else if (mode == 'h') {
         std::cout << "Parallel Mode: Hybrid\n";
         // not implemented, exit
