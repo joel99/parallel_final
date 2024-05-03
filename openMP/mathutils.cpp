@@ -41,7 +41,7 @@ void masked_scatter_reduce(std::vector<index_t> &index, std::vector<float> &in,
 }
 
 /**
- * A reduction based scatter reduce
+ * A reduction based scatter reduce. To be invoked in a parallel region.
  * @param scratch - a  <num_proc> * <data_out.size()> temporary matrix for thread
  *                  local aggregation (better than local allocation)
 */
@@ -72,16 +72,16 @@ void parallel_scatter_reduce(std::vector<index_t> &data_index,
     // }
 
     // Directly as OMP pragma
-    #pragma omp parallel
-    {
-        float* data_out_ptr = data_out.data();
-        int idx;
-        #pragma omp for reduction(+:data_out_ptr[:m])
-        for(int i = 0; i < n; i++){
-            idx = data_index[i];
-            data_out_ptr[idx] += data_in[i];
-        }
+    // #pragma omp parallel
+    // {
+    float* data_out_ptr = data_out.data();
+    int idx;
+    #pragma omp for reduction(+:data_out_ptr[:m])
+    for(int i = 0; i < n; i++){
+        idx = data_index[i];
+        data_out_ptr[idx] += data_in[i];
     }
+    // }
 }
 
 
@@ -106,21 +106,11 @@ float entropy_compute(std::vector<float> floats, float normalize){
     return out;
 }
 
-
-// Does poorly, too much overhead in setup?
-// float parallel_entropy_compute(std::vector<float> floats, float normalize){
-//     float out = 0.0;
-//     #pragma omp parallel for reduction(+:out)
-//     for(size_t i = 0; i < floats.size(); i++){
-//         out += normalize_entropy(floats[i], normalize);
-//     }
-//     return out;
-// }
-
 void parallel_entropy_compute(std::vector<float> floats, float normalize, float& out){
+    #pragma omp single
     out = 0.0;
     #pragma omp for reduction(+:out)
-    for(size_t i = 0; i < floats.size(); i++){
+    for(size_t i = 0; i < floats.size(); i++){ 
         out += normalize_entropy(floats[i], normalize);
     }
 }
