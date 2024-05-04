@@ -103,7 +103,7 @@ void scatter_reduce_cap(std::vector<float> &data_in, // input
     int guesses = static_cast<int>(data_index.size());
     int colors = static_cast<int>(data_out[0].size());
     int capacity = static_cast<int>(scratch[0].size());
-    std::cout << "Guesses: " << guesses << " Colors: " << colors << " Capacity: " << capacity << "\n";
+    // std::cout << "Guesses: " << guesses << " Colors: " << colors << " Capacity: " << capacity << "\n";
 
     int num_threads = omp_get_max_threads();
     // TODO, there's no reason only own thread should commit own work other than cache effect

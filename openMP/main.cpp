@@ -69,6 +69,7 @@ void compute_patterns(std::vector<std::vector<coloring_t>> &pattern_matrix,
  * @param prior_sum - The sum of all prior weights, returned by the function
  *                    that generates the vector of prior weights
  * @param answer - The WORD INDEX of the correct word.
+ * @param capacity - The capacity of the scratch space (hybrid)
  * @warning This function destructively modifies the priors vector.
 */
 int_fast64_t solver_verbose(wordlist_t &words,
@@ -81,6 +82,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
             int &answer,
             float prior_sum,
             char mode,
+            int capacity,
             bool rebuild){
     auto in_start = timestamp;
     // Initialize Additional Solver Data
@@ -156,7 +158,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
                 if (rebuild) {
                     exit(1);
                 } else {
-                    // candidate_parallel from sred.cpp
+                    // candidate_parallel from sred.cpp - far too slow due to repeated overhead
                     // probability_scratch.resize(num_patterns);  // Resize before the parallel block
                     // float out = 0.0f;
                     // #pragma omp parallel
@@ -216,7 +218,41 @@ int_fast64_t solver_verbose(wordlist_t &words,
                     std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
                 }
             } else if (mode == 'h') {
-                exit(1);
+                if (rebuild) {
+                    exit(1);
+                } {
+                    int num_threads = omp_get_max_threads();
+                    std::vector<std::vector<std::vector<float>>>
+                        scratch(num_threads, std::vector<std::vector<float>>(capacity, std::vector<float>(num_patterns, 0.0f)));
+                    std::vector<std::vector<float>> data_out(num_words, std::vector<float>(num_patterns, 0.0f));
+                    std::vector<omp_lock_t> locks;
+                    locks = std::vector<omp_lock_t>(num_words); 
+                    // init locks
+                    for(int i = 0; i < num_words; i++){
+                        omp_init_lock(&locks[i]);
+                    }
+
+                    auto inner_start = timestamp;
+
+                    scatter_reduce_cap(*priors_ref, *patterns_ref, data_out, scratch, locks);
+
+                    auto scatter_end = timestamp;
+                    auto entropy_start = timestamp;
+
+                    #pragma omp parallel for
+                    for (int word_idx = 0; word_idx < num_words; word_idx++){
+                        {
+                        entropys[word_idx] = entropy_compute(data_out[word_idx], prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
+                        }
+                    }
+                    auto inner_end = timestamp;
+                    // std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
+                    // std::cout << "Scatter Time: " << TIME(inner_start, scatter_end) << "\n";
+                    // std::cout << "Entropy Time: " << TIME(entropy_start, inner_end) << "\n";
+                    for(auto l:locks){
+                        omp_destroy_lock(&l);
+                    }
+                }
             }
             auto compute_end = timestamp;
             // Find the word that maximizes the expected entropy entropy.
@@ -319,6 +355,7 @@ int_fast64_t solver_verbose(wordlist_t &words,
  * @param prior_sum - The sum of all prior weights, returned by the function
  *                    that generates the vector of prior weights
  * @param mode - 'g' for guess parallel, 'c' for candidate parallel, 'h' for hybrid
+ * @param capacity - The capacity of the scratch space (hybrid )
  * @param answer - The WORD INDEX of the correct word.
  * @warning This function destructively modifies the priors vector.
 */
@@ -331,6 +368,7 @@ int solver(priors_t &priors,
             int &answer,
             float prior_sum,
             char mode,
+            int capacity,
             bool rebuild
             ){
     // Initialize Additional Solver Data
@@ -482,7 +520,6 @@ int solver(priors_t &priors,
                 if (rebuild) {
                     exit(1);
                 } {
-                    int capacity = 12;
                     int num_threads = omp_get_max_threads();
                     std::vector<std::vector<std::vector<float>>>
                         scratch(num_threads, std::vector<std::vector<float>>(capacity, std::vector<float>(num_patterns, 0.0f)));
@@ -494,13 +531,8 @@ int solver(priors_t &priors,
                         omp_init_lock(&locks[i]);
                     }
 
-                    auto inner_start = timestamp;
-
-                    scatter_reduce_cap(priors, pattern_matrix, data_out, scratch, locks);
+                    scatter_reduce_cap((*priors_ref), (*patterns_ref), data_out, scratch, locks);
                     // scatter_reduce_cap((*priors_ref), *patterns_ref, data_out, scratch, locks);
-
-                    auto scatter_end = timestamp;
-                    auto entropy_start = timestamp;
 
                     #pragma omp parallel for
                     for (int word_idx = 0; word_idx < num_words; word_idx++){
@@ -509,9 +541,6 @@ int solver(priors_t &priors,
                         }
                     }
                     auto inner_end = timestamp;
-                    // std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
-                    // std::cout << "Scatter Time: " << TIME(inner_start, scatter_end) << "\n";
-                    // std::cout << "Entropy Time: " << TIME(entropy_start, inner_end) << "\n";
                     for(auto l:locks){
                         omp_destroy_lock(&l);
                     }
@@ -627,9 +656,10 @@ int main(int argc, char **argv) {
     bool rand_prior = false;
     bool rebuild = false;
     int opt;
+    int capacity = 4;
     char mode = '\0';
     // Read program parameters
-    while ((opt = getopt(argc, argv, "f:n:p:t:m:x:brv")) != -1) {
+    while ((opt = getopt(argc, argv, "f:n:p:t:m:c:x:brv")) != -1) {
         switch (opt) {
         case 'f':
             text_filename = optarg;
@@ -645,6 +675,9 @@ int main(int argc, char **argv) {
             break;
         case 'm':
             wordlen = atoi(optarg);
+            break;
+        case 'c':
+            capacity = atoi(optarg);
             break;
         case 'x':
             mode = *optarg;
@@ -781,6 +814,7 @@ int main(int argc, char **argv) {
                 answer_index, 
                 priors_sum, 
                 mode,
+                capacity,
                 rebuild);
         }
         else{
@@ -794,6 +828,7 @@ int main(int argc, char **argv) {
                 answer_index,  
                 priors_sum, 
                 mode,
+                capacity,
                 rebuild);
         }
         std::cout << "<" << rounds << ">\n";
