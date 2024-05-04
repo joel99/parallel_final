@@ -260,7 +260,7 @@ void reduction_scatter_reduce_cap(std::vector<double> &data_in, // input
         scatter_start = timestamp;
 
         for (int guess = 0; guess < guesses; guess++){
-            // find the next empty slot
+            // find the next uncommitted slot in scratch, and stage data
             int write_lane = -1;
             for (int i = 0; i < capacity; i++){
                 if(!task_mask[thread_id][i]){
@@ -279,7 +279,7 @@ void reduction_scatter_reduce_cap(std::vector<double> &data_in, // input
             bool try_once = true;
             // std::cout << "Thread: " << thread_id << " Queue Size: " << task_queue[thread_id].size() << "\n";
             // attempt to clear accumulated work, iterate through list, and do not exceed capacity
-            while (try_once || task_queue[thread_id].size() > capacity) {
+            while (try_once || task_queue[thread_id].size() >= capacity) {
                 auto it = task_queue[thread_id].begin();
                 while (it != task_queue[thread_id].end()) {
                     int write_guess = it->first;
@@ -302,6 +302,8 @@ void reduction_scatter_reduce_cap(std::vector<double> &data_in, // input
                 try_once = false;
             }
         }
+        // #pragma omp single
+        // std::cout << "Thread: " << thread_id << " Clearing now \n";
         // clear queues - TODO assess how much is used here
         auto it = task_queue[thread_id].begin();
         while (it != task_queue[thread_id].end()) {
@@ -517,6 +519,7 @@ int main(int argc, char **argv) {
             for (long j = 0; j < input_dim; j++){
                 if(!is_zero(serial_out[j][i] -parallel_out[j][i])){
                     printf("Parallel Solution Mismatch at [%lu][%lu]: Expected %f, Actual: %f\n", j, i, serial_out[j][i], parallel_out[j][i]);
+                    exit(1);
                 }
             }
         }

@@ -145,7 +145,7 @@ void scatter_reduce_cap(std::vector<float> &data_in, // input
             bool try_once = true;
             // std::cout << "Thread: " << thread_id << " Queue Size: " << task_queue[thread_id].size() << "\n";
             // attempt to clear accumulated work, iterate through list, and do not exceed capacity
-            while (try_once || task_queue[thread_id].size() > capacity) {
+            while (try_once || task_queue[thread_id].size() >= capacity) {
                 auto it = task_queue[thread_id].begin();
                 while (it != task_queue[thread_id].end()) {
                     int write_guess = it->first;
