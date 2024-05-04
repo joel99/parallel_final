@@ -85,6 +85,8 @@ void parallel_scatter_reduce(std::vector<index_t> &data_index,
 }
 
 
+
+
 // Egregiously bad, 10x slower
 // void parallel_scatter_reduce(std::vector<index_t> &index, std::vector<float> &in,
 //     std::vector<float> &out){

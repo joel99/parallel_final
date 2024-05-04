@@ -163,7 +163,6 @@ void reduction_scatter_reduce_pipeline(std::vector<double> &data_in, // input
         Here threads will track and be adding and attempting to reduce work queues accumulated across guesses.
 
         TODO illustrate memory consumption of full scratch
-        TODO refactor full scratch into a partial, limited capacity scratch
     */
     int guesses = static_cast<int>(data_index.size());
     int colors = static_cast<int>(data_out[0].size());
@@ -249,6 +248,7 @@ void reduction_scatter_reduce_cap(std::vector<double> &data_in, // input
     // Hypothetical gains over guess-parallel if shared cache can be leveraged
     // Manual
     int candidate_span = ceil_xdivy(guesses, num_threads);
+    auto scatter_start = timestamp;
     #pragma omp parallel
     {
         int thread_id = omp_get_thread_num();
@@ -256,6 +256,9 @@ void reduction_scatter_reduce_cap(std::vector<double> &data_in, // input
         int read_max = std::min(read_min + candidate_span, guesses);
 
         int idx;
+        #pragma omp single
+        scatter_start = timestamp;
+
         for (int guess = 0; guess < guesses; guess++){
             // find the next empty slot
             int write_lane = -1;

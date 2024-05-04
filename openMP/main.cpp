@@ -9,7 +9,7 @@
 #include <cstring>
 #include <chrono>
 #include <unistd.h>
-
+#include <list>
 #include <omp.h>
 
 #define MAXITERS 10
@@ -413,6 +413,8 @@ int solver(priors_t &priors,
                 std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
             } else if (mode == 'c') { // Candidate parallel - absurdly slow
                 if (rebuild) {
+                    // not implemented - rebuilding gains comes from reducing scatter read, not scatter write
+                    // candidate parallel bottlenecked by write
                     exit(1);
                 } else {
                     // False starts in integration - needed to minimize single/critical paths 
@@ -420,6 +422,7 @@ int solver(priors_t &priors,
                     // use extra memory for scratch to avoid in-loop assignment
                     // reduction_scatter_reduce from sred_2d.cpp (manual)
                     int candidates = static_cast<int>((*patterns_ref)[0].size());
+                    // work to refactor scratch outside of candidate parallel not done - mainly because candidate parallel is not promising
                     std::vector<std::vector<std::vector<float>>>
                         scratch(omp_get_max_threads(), std::vector<std::vector<float>>(num_words, std::vector<float>(num_patterns, 0.0f)));
                     std::vector<std::vector<float>> data_out(num_words, std::vector<float>(num_patterns, 0.0f));
@@ -461,29 +464,137 @@ int solver(priors_t &priors,
                             auto scatter_end = timestamp;
                             scatter_time += TIME(scatter_start, scatter_end);
                         }
-                        #pragma omp barrier
-
-                        #pragma omp single
-                        entropy_start = timestamp;
-                        #pragma omp for
-                        for (int word_idx = 0; word_idx < num_words; word_idx++){
-                            {
-                            entropys[word_idx] = entropy_compute(data_out[word_idx], prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
-                            }
-                        }
-                        #pragma omp single nowait
+                    }
+                    // separate scatter / entropy for refactorability, ease of reading, benchmarking
+                    entropy_start = timestamp;
+                    #pragma omp parallel for schedule(dynamic)
+                    for (int word_idx = 0; word_idx < num_words; word_idx++){
                         {
-                            auto entropy_end = timestamp;
-                            entropy_time += TIME(entropy_start, entropy_end);
+                        entropys[word_idx] = entropy_compute(data_out[word_idx], prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
                         }
                     }
+                    auto entropy_end = timestamp;
+                    entropy_time += TIME(entropy_start, entropy_end);
                     auto inner_end = timestamp;
                     std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
                     std::cout << "Scatter Time: " << scatter_time << "\n";
                     std::cout << "Entropy Time: " << entropy_time << "\n";
                 }
             } else if (mode == 'h') {
-                exit(1);
+                // hybrid strategy - scatter_reduce_cap from sred_2d
+                if (rebuild) {
+                    exit(1);
+                } {
+                    int capacity = 12;
+                    int candidates = static_cast<int>((*patterns_ref)[0].size());
+                    int num_threads = omp_get_max_threads();
+                    std::vector<std::vector<std::vector<float>>>
+                        scratch(num_threads, std::vector<std::vector<float>>(capacity, std::vector<float>(num_patterns, 0.0f)));
+                    std::vector<std::vector<float>> data_out(num_words, std::vector<float>(num_patterns, 0.0f));
+
+                    std::vector<std::vector<bool>> task_mask = std::vector<std::vector<bool>>(num_threads, std::vector<bool>(capacity, false));
+                    // thread by work-item of (lane, guess) pairs to know what to map from/to
+                    auto task_queue = std::vector<std::list<std::pair<int, int>>>(
+                        num_threads, std::list<std::pair<int, int>>());
+
+                    int candidate_span = ceil_xdivy(candidates, omp_get_num_threads());
+                    std::vector<omp_lock_t> locks;
+                    locks = std::vector<omp_lock_t>(num_words); 
+                    // init locks
+                    for(int i = 0; i < num_words; i++){
+                        omp_init_lock(&locks[i]);
+                    }
+
+                    auto inner_start = timestamp;
+                    float scatter_time = 0.0f;
+                    float entropy_time = 0.0f;
+                    auto scatter_start = timestamp;
+                    auto entropy_start = timestamp;
+
+                    #pragma omp parallel
+                    {
+                        int thread_id = omp_get_thread_num();
+                        int read_min = candidate_span * thread_id;
+                        int read_max = std::min(read_min + candidate_span, candidates);
+                        int idx;
+                        #pragma omp single
+                        scatter_start = timestamp;
+                        for (int guess = 0; guess < num_words; guess++){
+                            // find the next empty slot
+                            int write_lane = -1;
+                            for (int i = 0; i < capacity; i++){
+                                if(!task_mask[thread_id][i]){
+                                    write_lane = i; 
+                                    scratch[thread_id][write_lane].assign(num_patterns, 0.0); // clear
+                                    task_mask[thread_id][write_lane] = true;
+                                    break;
+                                }
+                            }
+                            for(int candidate = read_min; candidate < read_max; candidate++){
+                                idx = (*patterns_ref)[guess][candidate];
+                                scratch[thread_id][write_lane][idx] += (*priors_ref)[candidate];
+                            }
+                            task_queue[thread_id].push_back(std::make_pair(guess, write_lane));
+                            bool try_once = true;
+                            // attempt to clear accumulated work, iterate through list, and do not exceed capacity
+                            while (try_once || task_queue[thread_id].size() > capacity) {
+                                auto it = task_queue[thread_id].begin();
+                                while (it != task_queue[thread_id].end()) {
+                                    int write_guess = it->first;
+                                    int write_lane = it->second;
+                                    if (omp_test_lock(&locks[write_guess])) {
+                                        for (int color = 0; color < num_patterns; color++) {
+                                            data_out[write_guess][color] += scratch[thread_id][write_lane][color];
+                                        }
+                                        omp_unset_lock(&locks[write_guess]);
+                                        task_mask[thread_id][write_lane] = false;
+                                        it = task_queue[thread_id].erase(it); // Erase returns the next iterator
+                                    } else {
+                                        ++it;
+                                    }
+                                }
+                                try_once = false;
+                            }
+                        }
+                        // clear queues
+                        auto it = task_queue[thread_id].begin();
+                        while (it != task_queue[thread_id].end()) {
+                            auto pair = task_queue[thread_id].front();
+                            int write_guess = pair.first;
+                            int write_lane = pair.second;
+                            std::cout << "Thread: " << thread_id << " Writing Guess: " << write_guess << "\n";
+                            omp_set_lock(&locks[write_guess]);
+                            for (int color = 0; color < num_patterns; color++) {
+                                data_out[write_guess][color] += scratch[thread_id][write_lane][color];
+                            }
+                            omp_unset_lock(&locks[write_guess]);
+                            ++it;
+                        }
+                        #pragma omp single nowait
+                        {
+                            auto first_end = timestamp;
+                            std::cout << "First Scatter Time: " << TIME(scatter_start, first_end) << "\n";
+                        }
+                    }
+
+                    auto scatter_end = timestamp;
+                    scatter_time += TIME(scatter_start, scatter_end);
+                    entropy_start = timestamp;
+                    #pragma omp parallel for
+                    for (int word_idx = 0; word_idx < num_words; word_idx++){
+                        {
+                        entropys[word_idx] = entropy_compute(data_out[word_idx], prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
+                        }
+                    }
+                    auto inner_end = timestamp;
+                    entropy_time += TIME(entropy_start, inner_end);
+                    std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
+                    std::cout << "Scatter Time: " << scatter_time << "\n";
+                    std::cout << "Entropy Time: " << entropy_time << "\n";
+                    for(auto l:locks){
+                        omp_destroy_lock(&l);
+                    }
+                }
             }
             // Find the word that maximizes the expected entropy entropy.
             guess = arg_max(entropys);
@@ -723,8 +834,6 @@ int main(int argc, char **argv) {
         std::cout << "Parallel Mode: Serial\n";
     } else if (mode == 'h') {
         std::cout << "Parallel Mode: Hybrid\n";
-        // not implemented, exit
-        exit(1);
     }
     // Benchmark all words in the test set.
     double time_total;
