@@ -65,28 +65,28 @@ Our current progress mostly aligns with our initial expectations and it is likel
 
 One item worth mentioning is that we are somewhat underwhelmed by the performance of parallel scatter reduce. On one of the team member's personal computer (Macbook Pro 16 inch, 8 Core i9-9880H CPU), all of our current parallel scatter reduce implementations perform significantly worse than our sequential baseline on the typical input sizes used in the wordle solver (10 to 20 thousand input items, and an output dimension of 243), and the performance gain due to parallelism on very large data sets is also very limited. We propose improving the locality of memory access by sorting the input arrays, but we are especially concerned as sorting inherently requires more work than the actual scatter reduce operation. However, it is likely for us to incorporate some ideas in the sparse matrix vector multiplication approach into our CUDA scatter reduce implementtion.
 
-## Updated Project Goals and Schedules
+## Updated Project Goals and Schedules (As of May 3rd)
 - Week 4/12:
   - 🔴 Provide a serial CPU C++ and pytorch (python with C++ bindings) implementation of the V1 algorithm. (Completed, SH & JY)
   - 🔴 Analyze sequential algorithm and determine multiple parallel appraoches to the Wordle solver. (Completed, SH & JY)
   - 🔴 Implement first OpenMP parallel program on the candidate guess loop. (Completed, SH)
   - 🔴 Provide test-bank evaluator and profile the two implementations on 5-letter wordle. (Completed, SH & JY)
 - Week 4/15 (First Half):
-  - 🔵 Implement and profile guess level and candidate level parallelism while optimizing for memory locality and minimizing scatter reduce contention. (In Progress, SH & JY)
-  - 🟢 Evaluate performance characteristics of various implementations of scatter reduce and map reduce. (New Task, In Progress, SH)
+  - 🔴 Implement and profile guess level and candidate level parallelism while optimizing for memory locality and minimizing scatter reduce contention. (Finished, SH & JY)
+  - 🔴 Evaluate performance characteristics of various implementations of scatter reduce and map reduce. (Finished, JY)
 - Week 4/15 (Second Half):
-  - ⚫ Evaluate correctness degradation with reduced synchronization on reduction. (Pending, JY)
-  - ⚫ Implement message-passing solver with MPI (Pending, SH & JY)
-  - ⚫ Start to implement GPU solver in CUDA (Pending, SH & JY)
+  - ⚫ Evaluate correctness degradation with reduced synchronization on reduction. (Task Removed: Not Necessary for this study.)
+  - 🔴 Implement message-passing solver with MPI (Finished, SH)
+  - 🔴 Start to implement GPU solver in CUDA (Finished, SH)
 - Week 4/22 (First Half):
-  - 🔵 Experiment with coloring matrix partitioning or on the fly coloring computation (all in OpenMP). (In Progress, JY)
-  - ⚫ Profile and optimize workload balancing across turns. (Pending, SH & JY)
+  - 🔵 Experiment with coloring matrix partitioning or on the fly coloring computation. (In Progress, JY & SH)
+  - 🔵 Profile and optimize workload balancing across turns. (In Progress, JY)
 - Week 4/22 (Second Half):
-  - ⚫ Continue Optimizing the CUDA Solver (Pending, SH)
-  - 🔵 Scale problem size in number of letters (up to 7) (In Progress, JY)
+  - 🔵 Continue Optimizing the CUDA Solver (In Progress, SH)
+  - 🔴 Scale problem size in number of letters (up to 7) (Finished, JY)
 - Week 4/29 (First Half):
-  - ⚫ Profile and analyze performance characteristics of GPU solver (Pending, SH & JY)
-  - 🟢 Perform problem size sensitivity analysis (New Task, Pending, SH)
-  - ⚫ Hope to Achieve: extend problem size in number of boards to solve. (Pending, SH & JY)
+  - 🔵 Profile and analyze performance characteristics of GPU solver (In Progress, SH)
+  - 🔵 Perform problem size sensitivity analysis (In Progress, JY)
+  - ⚫ Hope to Achieve: extend problem size in number of boards to solve. (Task Removed: Not likely to finish.)
 - Week 4/29 (Second Half): 
-  ⚫ Writing up report and preparing poster. (Pending, SH & JY)
+  🔵 Writing up report and preparing poster. (In Progress, SH & JY)
