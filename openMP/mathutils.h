@@ -6,6 +6,7 @@
 #include <cmath>
 #include <vector>
 #include <cstdlib>
+#include <omp.h>
 #include "word.h"
 
 #ifndef MATH_H
@@ -18,6 +19,11 @@ typedef coloring_t index_t;
  * Test if a floating point number is 0.
 */
 bool is_zero(float x);
+
+/**
+ * Ceiling of x/y
+*/
+unsigned long ceil_xdivy(unsigned long X, unsigned long Y);
 
 /**
  * returns a random floating point number between low and high.
@@ -55,6 +61,19 @@ void masked_scatter_reduce(std::vector<index_t> &index, std::vector<float> &in,
 void parallel_scatter_reduce(std::vector<index_t> &index, std::vector<float> &in,
     std::vector<float> &out);
     // std::vector<float> &out, std::vector<std::vector<float>> &scratch);
+
+/*
+    void scatter_reduce_cap(std::vector<double> &data_in, // input
+                              std::vector<std::vector<int>> &data_index, // output by input
+                              std::vector<std::vector<double>> &data_out, // input by color/output 
+                              std::vector<std::vector<std::vector<double>>> &scratch, // capacity x color/output
+                              std::vector<omp_lock_t> &locks){ // thread by input by color/output
+*/
+void scatter_reduce_cap(std::vector<float> &data_in, // input
+                            std::vector<std::vector<short unsigned int>> &data_index, // output by input
+                            std::vector<std::vector<float>> &data_out, // input by color/output 
+                            std::vector<std::vector<std::vector<float>>> &scratch, // capacity x color/output
+                            std::vector<omp_lock_t> &locks); // thread by input by color/output
 
 /**
  * Computes the entropy via a map reduce operation

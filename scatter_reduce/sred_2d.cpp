@@ -317,6 +317,8 @@ void reduction_scatter_reduce_cap(std::vector<double> &data_in, // input
             ++it;
         }
     }
+    auto scatter_end = timestamp;
+    std::cout << "Scatter Time: " << TIME(scatter_start, scatter_end) << "\n";
 }
 
 void reduction_scatter_reduce_row(std::vector<double> &data_in, // input
