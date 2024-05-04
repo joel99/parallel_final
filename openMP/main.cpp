@@ -161,24 +161,69 @@ int_fast64_t solver_verbose(wordlist_t &words,
                 } else {
                     // candidate_parallel from sred.cpp
                     probability_scratch.resize(num_patterns);  // Resize before the parallel block
-                    float out = 0.0f;
+                    // float out = 0.0f;
+                    // #pragma omp parallel
+                    // {
+                    //     for(int word_idx = 0; word_idx < num_words; word_idx++){
+                    //         #pragma omp for
+                    //         for (int i = 0; i < num_patterns; i++){
+                    //             probability_scratch[i] = 0.0f;
+                    //         }
+
+                    //         parallel_scatter_reduce(pattern_matrix[word_idx], priors,
+                    //             probability_scratch);
+                            
+                    //         parallel_entropy_compute(probability_scratch, prior_sum, out);
+
+                    //         #pragma omp single nowait
+                    //         entropys[word_idx] = out + (*priors_ref)[word_idx] / prior_sum;
+                    //     }
+                    // }
+
+                    int candidates = static_cast<int>((*patterns_ref)[0].size());
+                    std::vector<std::vector<std::vector<float>>>
+                        scratch(omp_get_max_threads(), std::vector<std::vector<float>>(num_words, std::vector<float>(num_patterns, 0.0f)));
+                    std::vector<std::vector<float>> data_out(num_words, std::vector<float>(num_patterns, 0.0f));
+                    // std::vector<priors_t> probability_vec = std::vector<priors_t>(num_words, num_patterns, 0.0f); 
+                    std::cout << "Candidates: " << candidates << "\n";
+                    std::cout << "Colors: " << num_patterns << "\n";
+                    // scratch of size thread x input x num_patterns
+                    int candidate_span = ceil_xdivy(candidates, omp_get_num_threads());
+                    auto inner_start = timestamp;
                     #pragma omp parallel
                     {
-                        for(int word_idx = 0; word_idx < num_words; word_idx++){
-                            #pragma omp for
-                            for (int i = 0; i < num_patterns; i++){
-                                probability_scratch[i] = 0.0f;
+                        int thread_id = omp_get_thread_num();
+                        int read_min = candidate_span * thread_id;
+                        int read_max = std::min(read_min + candidate_span, candidates);
+                        int idx;
+                        // Manual inner assignment is always killer - move it out
+                        for (int guess = 0; guess < num_words; guess++){
+                            for(int candidate = read_min; candidate < read_max; candidate++){
+                                idx = (*patterns_ref)[guess][candidate];
+                                scratch[thread_id][guess][idx] += (*priors_ref)[candidate];
                             }
+                            #pragma omp critical
+                            {
+                                for(int color = 0; color < num_patterns; color++){
+                                    data_out[guess][color] += scratch[thread_id][guess][color];
+                                }
+                            }
+                            // parallel_scatter_reduce((*patterns_ref)[guess], *priors_ref,
+                                // data_out[guess]);
+                        }
+                        #pragma omp barrier
+                        #pragma omp single
+                        std::cout << "data_out[0][0]: " << data_out[0][0] << "\n";
 
-                            parallel_scatter_reduce(pattern_matrix[word_idx], priors,
-                                probability_scratch);
-                            
-                            parallel_entropy_compute(probability_scratch, prior_sum, out);
-
-                            #pragma omp single nowait
-                            entropys[word_idx] = out + priors[word_idx] / prior_sum;
+                        #pragma omp for
+                        for (int word_idx = 0; word_idx < num_words; word_idx++){
+                            {
+                            entropys[word_idx] = entropy_compute(data_out[word_idx], prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
+                            }
                         }
                     }
+                    auto inner_end = timestamp;
+                    std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
                 }
             } else if (mode == 'h') {
                 exit(1);
@@ -344,6 +389,7 @@ int solver(priors_t &priors,
                         prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
                 }
             } else if (mode == 'g') { // More than 2 words: Compute the entropy for ALL words
+                auto inner_start = timestamp;
                 #pragma omp parallel for schedule(dynamic) private(probability_scratch)
                 for(int word_idx = 0; word_idx < num_words; word_idx++){
                     probability_scratch.assign(num_patterns, 0.0f);
@@ -357,13 +403,17 @@ int solver(priors_t &priors,
                         // prior_sum) + (priors_scratch[word_idx] / prior_sum);
                         prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
                 }
+                auto inner_end = timestamp;
+                std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
             } else if (mode == 'c') { // Candidate parallel - absurdly slow
                 if (rebuild) {
                     exit(1);
                 } else {
-                    // False paths in integration - critical paths for entropy computation blocked further loops, too slow, use extra memory for scratch to delay the critical path
+                    // False starts in integration - needed to minimize single/critical paths 
+                    // Entropy computation moved to separate loop
+                    // use extra memory for scratch to avoid in-loop assignment
                     // candidate_parallel from sred_2d.cpp
-                    probability_scratch.resize(num_patterns);  // Resize before the parallel block
+                    // probability_scratch.resize(num_patterns);  // Resize before the parallel block
                     int candidates = static_cast<int>((*patterns_ref)[0].size());
                     std::vector<std::vector<std::vector<float>>>
                         scratch(omp_get_max_threads(), std::vector<std::vector<float>>(num_words, std::vector<float>(num_patterns, 0.0f)));
@@ -372,16 +422,19 @@ int solver(priors_t &priors,
                     // std::cout << "Candidates: " << candidates << "\n";
                     // std::cout << "Colors: " << num_patterns << "\n";
                     // scratch of size thread x input x num_patterns
-
+                    int candidate_span = ceil_xdivy(num_words, omp_get_num_threads());
+                    auto inner_start = timestamp;
                     #pragma omp parallel
                     {
                         int thread_id = omp_get_thread_num();
+                        int read_min = candidate_span * thread_id;
+                        int read_max = std::min(read_min + candidate_span, candidates);
                         int idx;
+                        // Manual inner assignment is always killer - move it out
                         for (int guess = 0; guess < num_words; guess++){
-                            #pragma omp for
-                            for(int candidate = 0; candidate < pattern_matrix[guess].size(); candidate++){
-                                idx = pattern_matrix[guess][candidate];
-                                scratch[thread_id][guess][idx] += priors[candidate];
+                            for(int candidate = read_min; candidate < read_max; candidate++){
+                                idx = (*patterns_ref)[guess][candidate];
+                                scratch[thread_id][guess][idx] += (*priors_ref)[candidate];
                             }
                             #pragma omp critical
                             {
@@ -389,6 +442,8 @@ int solver(priors_t &priors,
                                     data_out[guess][color] += scratch[thread_id][guess][color];
                                 }
                             }
+                            // parallel_scatter_reduce((*patterns_ref)[guess], *priors_ref,
+                                // data_out[guess]);
                         }
 
                         #pragma omp for
@@ -398,6 +453,8 @@ int solver(priors_t &priors,
                             }
                         }
                     }
+                    auto inner_end = timestamp;
+                    std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
                 }
             } else if (mode == 'h') {
                 exit(1);

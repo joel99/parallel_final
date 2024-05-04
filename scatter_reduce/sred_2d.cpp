@@ -81,6 +81,7 @@ void reduction_scatter_reduce(std::vector<double> &data_in, // input
                               std::vector<std::vector<int>> &data_index, // output by input
                               std::vector<std::vector<double>> &data_out, // input by color/output 
                               std::vector<std::vector<std::vector<double>>> &scratch){ // thread by input by color/output
+    // Having #omp fors inside loops impose untenable overhead, do manual computation (e.g. 0.5x to 2.5x speedup for 8 threads)
     int guesses = static_cast<int>(data_index.size());
     int colors = static_cast<int>(data_out[0].size());
     std::cout << "Guesses: " << guesses << " Colors: " << colors << "\n";
@@ -90,9 +91,13 @@ void reduction_scatter_reduce(std::vector<double> &data_in, // input
     {
         int thread_id = omp_get_thread_num();
         int idx;
+        int candidate_span = ceil_xdivy(guesses, omp_get_num_threads());
+        int read_min = candidate_span * thread_id;
+        int read_max = std::min(read_min + candidate_span, guesses);
         for (int guess = 0; guess < guesses; guess++){
-            #pragma omp for
-            for(int candidate = 0; candidate < data_index[guess].size(); candidate++){
+            // #pragma omp for
+            // for(int candidate = 0; candidate < data_index[guess].size(); candidate++){
+            for(int candidate = read_min; candidate < read_max; candidate++){
                 idx = data_index[guess][candidate];
                 scratch[thread_id][guess][idx] += data_in[candidate];
             }
@@ -102,7 +107,6 @@ void reduction_scatter_reduce(std::vector<double> &data_in, // input
                     data_out[guess][color] += scratch[thread_id][guess][color];
                 }
             }
-
         }
         // No alloc, theoretical near equivalent to OMP
         // std::vector<double> local_sum(colors, 0.0); // Each thread has a local sum array
