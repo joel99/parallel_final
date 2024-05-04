@@ -86,7 +86,7 @@ void reduction_scatter_reduce(std::vector<double> &data_in, // input
     int colors = static_cast<int>(data_out[0].size());
     std::cout << "Guesses: " << guesses << " Colors: " << colors << "\n";
 
-    // Manual
+    // Manual inner assignment is killer, explicitly compute work allocation
     #pragma omp parallel // Local Aggregation Step
     {
         int thread_id = omp_get_thread_num();
