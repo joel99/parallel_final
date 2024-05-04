@@ -137,7 +137,7 @@ void reduction_scatter_reduce_omp(std::vector<double> &data_in, // input
     // Manual
     #pragma omp parallel // Local Aggregation Step
     {
-        // OMP - fails for longer lengths (IO shape 12800 x 256, 1x263609) for unknown reason, manual above still works
+        // *OMP - fails for longer lengths (IO shape 12800 x 256, i.e. standard length, 1x263609) for unknown reason, manual above still works
         int idx;
         for (int guess = 0; guess < guesses; guess++){
             #pragma omp for reduction(+:data_out_ptr[guess * colors:colors]) // syntax is start:length

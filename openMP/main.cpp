@@ -361,41 +361,41 @@ int solver(priors_t &priors,
                 if (rebuild) {
                     exit(1);
                 } else {
+                    // False paths in integration - critical paths for entropy computation blocked further loops, too slow, use extra memory for scratch to delay the critical path
                     // candidate_parallel from sred_2d.cpp
                     probability_scratch.resize(num_patterns);  // Resize before the parallel block
                     int candidates = static_cast<int>((*patterns_ref)[0].size());
-                    std::cout << "Candidates: " << candidates << "\n";
-                    std::cout << "Colors: " << num_patterns << "\n";
-                    float* data_out_ptr = probability_scratch.data(); // omp style
+                    std::vector<std::vector<std::vector<float>>>
+                        scratch(omp_get_max_threads(), std::vector<std::vector<float>>(num_words, std::vector<float>(num_patterns, 0.0f)));
+                    std::vector<std::vector<float>> data_out(num_words, std::vector<float>(num_patterns, 0.0f));
+                    // std::vector<priors_t> probability_vec = std::vector<priors_t>(num_words, num_patterns, 0.0f); 
+                    // std::cout << "Candidates: " << candidates << "\n";
+                    // std::cout << "Colors: " << num_patterns << "\n";
+                    // scratch of size thread x input x num_patterns
 
                     #pragma omp parallel
                     {
+                        int thread_id = omp_get_thread_num();
                         int idx;
-                        for (int word_idx = 0; word_idx < num_words; word_idx++){
+                        for (int guess = 0; guess < num_words; guess++){
                             #pragma omp for
-                            for (int i = 0; i < num_patterns; i++){
-                                probability_scratch[i] = 0.0f;
+                            for(int candidate = 0; candidate < pattern_matrix[guess].size(); candidate++){
+                                idx = pattern_matrix[guess][candidate];
+                                scratch[thread_id][guess][idx] += priors[candidate];
                             }
-
-                            // #pragma omp for reduction(+:data_out_ptr[:num_patterns])
-                            #pragma omp single
-                            for(int candidate = 0; candidate < candidates; candidate++){
-                                idx = (*patterns_ref)[word_idx][candidate];
-                                // idx = (*patterns_ref)[guess][candidate];
-                                data_out_ptr[idx] += (*priors_ref)[candidate];
-                            }
-
-                            #pragma omp single
+                            #pragma omp critical
                             {
-                            entropys[word_idx] = entropy_compute(probability_scratch, prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
+                                for(int color = 0; color < num_patterns; color++){
+                                    data_out[guess][color] += scratch[thread_id][guess][color];
+                                }
                             }
-                            // parallel_scatter_reduce(pattern_matrix[word_idx], priors,
-                                // probability_scratch);
-                            // parallel_entropy_compute(probability_scratch, prior_sum, out);
-                            
-                            // #pragma omp single nowait
-                            // entropys[word_idx] = out + priors[word_idx] / prior_sum;
-                            // }
+                        }
+
+                        #pragma omp for
+                        for (int word_idx = 0; word_idx < num_words; word_idx++){
+                            {
+                            entropys[word_idx] = entropy_compute(data_out[word_idx], prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
+                            }
                         }
                     }
                 }
