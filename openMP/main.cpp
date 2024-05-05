@@ -391,6 +391,10 @@ int solver(priors_t &priors,
         }
     }
     
+    std::vector<float> inner_time = std::vector<float>(MAXITERS, 0.0f);
+    std::vector<float> scatter_time = std::vector<float>(MAXITERS, 0.0f);
+    std::vector<float> entropy_time = std::vector<float>(MAXITERS, 0.0f);
+    std::vector<float> rebuild_time = std::vector<float>(MAXITERS, 0.0f);
     while(iters < MAXITERS){
         /******************** Entropy Computation Phase **********************/
         if(words_remaining <= 2){ 
@@ -402,26 +406,21 @@ int solver(priors_t &priors,
             }
         } else {
             if (mode == 's') { // serial
-                // auto inner_start = timestamp;
-                // float scatter_time = 0.0f;
-                // float entropy_time = 0.0f;
+                auto inner_start = timestamp;
                 for(int word_idx = 0; word_idx < num_words; word_idx++){
                     probability_scratch.assign(num_patterns, 0.0f);
                     auto scatter_start = timestamp;
                     scatter_reduce((*patterns_ref)[word_idx], *priors_ref,
                         probability_scratch);
-                    // auto scatter_end = timestamp;
-                    // scatter_time += TIME(scatter_start, scatter_end);
-                    // auto entropy_start = timestamp;
+                    auto scatter_end = timestamp;
                     entropys[word_idx] = entropy_compute(probability_scratch, 
                         prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
-                    // auto entropy_end = timestamp;
-                    // entropy_time += TIME(entropy_start, entropy_end);
+                    auto entropy_end = timestamp;
+                    scatter_time[iters] += TIME(scatter_start, scatter_end);
+                    entropy_time[iters] += TIME(scatter_end, entropy_end);
                 }
-                // auto inner_end = timestamp;
-                // std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
-                // std::cout << "Scatter Time: " << scatter_time << "\n";
-                // std::cout << "Entropy Time: " << entropy_time << "\n";
+                auto inner_end = timestamp;
+                inner_time[iters] = TIME(inner_start, inner_end);
             } else if (mode == 'g') { // More than 2 words: Compute the entropy for ALL words
                 auto inner_start = timestamp;
                 #pragma omp parallel for schedule(dynamic) private(probability_scratch)
@@ -438,7 +437,7 @@ int solver(priors_t &priors,
                         prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
                 }
                 auto inner_end = timestamp;
-                std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
+                inner_time[iters] = TIME(inner_start, inner_end);
             } else if (mode == 'c') { // Candidate parallel - absurdly slow
                 if (rebuild) {
                     // not implemented - rebuilding gains comes from reducing scatter read, not scatter write
@@ -520,8 +519,29 @@ int solver(priors_t &priors,
 
         // Check for guess feed back.
         feedback = pattern_matrix[guess][answer];
-        if(is_correct_guess(feedback)) return iters + 1;
+        if(is_correct_guess(feedback)) {
+            // sum nonnegative iters
+            float inner_time_total = 0.0f;
+            float scatter_time_total = 0.0f;
+            float entropy_time_total = 0.0f;
+            float rebuild_time_total = 0.0f;
+            for (int i = 0; i < iters; i++) {
+                inner_time_total += inner_time[i];
+                scatter_time_total += scatter_time[i];
+                entropy_time_total += entropy_time[i];
+                rebuild_time_total += rebuild_time[i];
+            }
+            std::cout << "\nInner Time: " << inner_time_total << "\n";
+            std::cout << "Scatter Time: " << scatter_time_total << "\n";
+            std::cout << "Entropy Time: " << entropy_time_total << "\n";
+            std::cout << "Rebuild Time: " << rebuild_time_total << "\n";
+            for (int i = 0; i < iters; i++) {
+                std::cout << "Iteration " << i << " Round Time: " << inner_time[i] << "\n";
+            }
+            return iters + 1;
+        }
         /******************** Update Phase **********************/
+        auto update_start = timestamp;
         if (!rebuild) {
             words_remaining = 0;
             prior_sum = 0.0f;
@@ -606,7 +626,26 @@ int solver(priors_t &priors,
             priors_ref = &priors_scratch;
             patterns_ref = &patterns_scratch;
         }
+        auto update_end = timestamp;
+        rebuild_time[iters] = TIME(update_start, update_end);
         iters ++;
+    }
+    float inner_time_total = 0.0f;
+    float scatter_time_total = 0.0f;
+    float entropy_time_total = 0.0f;
+    float rebuild_time_total = 0.0f;
+    for (int i = 0; i < iters; i++) {
+        inner_time_total += inner_time[i];
+        scatter_time_total += scatter_time[i];
+        entropy_time_total += entropy_time[i];
+        rebuild_time_total += rebuild_time[i];
+    }
+    std::cout << "\nInner Time: " << inner_time_total << "\n";
+    std::cout << "Scatter Time: " << scatter_time_total << "\n";
+    std::cout << "Entropy Time: " << entropy_time_total << "\n";
+    std::cout << "Rebuild Time: " << rebuild_time_total << "\n";
+    for (int i = 0; i < iters; i++) {
+        std::cout << "Iteration " << i << " Round Time: " << inner_time[i] << "\n";
     }
     return iters;
 }

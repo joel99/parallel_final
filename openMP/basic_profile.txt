@@ -1,0 +1,917 @@
+IO Initialization: 0.030061
+Pre-processing: 0.287281
+No Rebuild
+Parallel Mode: Serial
+Benchmarking word: [30ml[0m[30mi[0m[30mn[0m[30me[0m[30mr[0m 
+Inner Time: 0.755327
+Scatter Time: 0.737224
+Entropy Time: 0.0172498
+Rebuild Time: 0.00035
+Iteration 0 Round Time: 0.257662
+Iteration 1 Round Time: 0.250353
+Iteration 2 Round Time: 0.247312
+<4>
+Benchmarking word: [30mw[0m[30mh[0m[30ma[0m[30mr[0m[30mf[0m 
+Inner Time: 1.00844
+Scatter Time: 0.986716
+Entropy Time: 0.0205648
+Rebuild Time: 0.000547
+Iteration 0 Round Time: 0.258535
+Iteration 1 Round Time: 0.252854
+Iteration 2 Round Time: 0.250582
+Iteration 3 Round Time: 0.246466
+Iteration 4 Round Time: 0
+<6>
+Benchmarking word: [30mm[0m[30mi[0m[30ma[0m[30mu[0m[30ml[0m 
+Inner Time: 0.76191
+Scatter Time: 0.743089
+Entropy Time: 0.0179137
+Rebuild Time: 0.000301
+Iteration 0 Round Time: 0.258661
+Iteration 1 Round Time: 0.252769
+Iteration 2 Round Time: 0.25048
+<4>
+Benchmarking word: [30ma[0m[30mv[0m[30me[0m[30ml[0m[30ms[0m 
+Inner Time: 0.753032
+Scatter Time: 0.735568
+Entropy Time: 0.0165918
+Rebuild Time: 0.000277
+Iteration 0 Round Time: 0.258624
+Iteration 1 Round Time: 0.250799
+Iteration 2 Round Time: 0.243609
+<4>
+Benchmarking word: [30mg[0m[30ma[0m[30mu[0m[30mn[0m[30mt[0m 
+Inner Time: 0.755561
+Scatter Time: 0.737892
+Entropy Time: 0.0167598
+Rebuild Time: 0.000345
+Iteration 0 Round Time: 0.258634
+Iteration 1 Round Time: 0.25068
+Iteration 2 Round Time: 0.246247
+<4>
+Benchmarking word: [30mp[0m[30mo[0m[30mk[0m[30ma[0m[30ml[0m 
+Inner Time: 0.769714
+Scatter Time: 0.750541
+Entropy Time: 0.0182607
+Rebuild Time: 0.00039
+Iteration 0 Round Time: 0.264779
+Iteration 1 Round Time: 0.255183
+Iteration 2 Round Time: 0.249752
+Iteration 3 Round Time: 0
+<5>
+Benchmarking word: [30mp[0m[30ma[0m[30mr[0m[30me[0m[30mr[0m 
+Inner Time: 0.509659
+Scatter Time: 0.495531
+Entropy Time: 0.0134938
+Rebuild Time: 0.000242
+Iteration 0 Round Time: 0.261384
+Iteration 1 Round Time: 0.248275
+<3>
+Benchmarking word: [30mm[0m[30ma[0m[30mi[0m[30mz[0m[30me[0m 
+Inner Time: 0.755083
+Scatter Time: 0.737286
+Entropy Time: 0.0168968
+Rebuild Time: 0.000356
+Iteration 0 Round Time: 0.25999
+Iteration 1 Round Time: 0.252672
+Iteration 2 Round Time: 0.242421
+<4>
+Benchmarking word: [30my[0m[30mu[0m[30mm[0m[30mm[0m[30my[0m 
+Inner Time: 0.760151
+Scatter Time: 0.741505
+Entropy Time: 0.0177578
+Rebuild Time: 0.000368
+Iteration 0 Round Time: 0.257917
+Iteration 1 Round Time: 0.251644
+Iteration 2 Round Time: 0.25059
+<4>
+Benchmarking word: [30mh[0m[30me[0m[30mm[0m[30me[0m[30ms[0m 
+Inner Time: 1.01019
+Scatter Time: 0.989065
+Entropy Time: 0.0199008
+Rebuild Time: 0.000464
+Iteration 0 Round Time: 0.258556
+Iteration 1 Round Time: 0.252567
+Iteration 2 Round Time: 0.249592
+Iteration 3 Round Time: 0.249475
+<5>
+Benchmarking word: [30mo[0m[30mu[0m[30mi[0m[30mj[0m[30ma[0m 
+Inner Time: 0.764793
+Scatter Time: 0.746138
+Entropy Time: 0.0177487
+Rebuild Time: 0.000323
+Iteration 0 Round Time: 0.258296
+Iteration 1 Round Time: 0.258361
+Iteration 2 Round Time: 0.248136
+<4>
+Benchmarking word: [30mk[0m[30ml[0m[30mu[0m[30mg[0m[30me[0m 
+Inner Time: 0.766948
+Scatter Time: 0.747867
+Entropy Time: 0.0181557
+Rebuild Time: 0.000337
+Iteration 0 Round Time: 0.261675
+Iteration 1 Round Time: 0.252198
+Iteration 2 Round Time: 0.253075
+<4>
+Benchmarking word: [30ms[0m[30ma[0m[30mt[0m[30ma[0m[30mi[0m 
+Inner Time: 0.509177
+Scatter Time: 0.494893
+Entropy Time: 0.0136698
+Rebuild Time: 0.000294
+Iteration 0 Round Time: 0.259348
+Iteration 1 Round Time: 0.249829
+Iteration 2 Round Time: 0
+<4>
+Benchmarking word: [30mf[0m[30ma[0m[30mk[0m[30me[0m[30mr[0m 
+Inner Time: 1.00825
+Scatter Time: 0.987556
+Entropy Time: 0.0195408
+Rebuild Time: 0.000443
+Iteration 0 Round Time: 0.259076
+Iteration 1 Round Time: 0.250663
+Iteration 2 Round Time: 0.25134
+Iteration 3 Round Time: 0.247175
+<5>
+Benchmarking word: [30mp[0m[30mi[0m[30ms[0m[30me[0m[30ms[0m 
+Inner Time: 0.980269
+Scatter Time: 0.959149
+Entropy Time: 0.0199509
+Rebuild Time: 0.000423
+Iteration 0 Round Time: 0.261631
+Iteration 1 Round Time: 0.254943
+Iteration 2 Round Time: 0.249418
+Iteration 3 Round Time: 0.214277
+<5>
+Benchmarking word: [30mc[0m[30mo[0m[30mr[0m[30me[0m[30my[0m 
+Inner Time: 0.755679
+Scatter Time: 0.738258
+Entropy Time: 0.0165328
+Rebuild Time: 0.000372
+Iteration 0 Round Time: 0.258459
+Iteration 1 Round Time: 0.250165
+Iteration 2 Round Time: 0.247055
+<4>
+Benchmarking word: [30mg[0m[30mr[0m[30me[0m[30mi[0m[30mn[0m 
+Inner Time: 0.75923
+Scatter Time: 0.740826
+Entropy Time: 0.0175208
+Rebuild Time: 0.000356
+Iteration 0 Round Time: 0.258785
+Iteration 1 Round Time: 0.254535
+Iteration 2 Round Time: 0.24591
+<4>
+Benchmarking word: [30mc[0m[30mo[0m[30mr[0m[30mn[0m[30ms[0m 
+Inner Time: 0.751408
+Scatter Time: 0.734012
+Entropy Time: 0.0165308
+Rebuild Time: 0.000368
+Iteration 0 Round Time: 0.257691
+Iteration 1 Round Time: 0.250735
+Iteration 2 Round Time: 0.242982
+<4>
+Benchmarking word: [30mw[0m[30me[0m[30mi[0m[30ml[0m[30ms[0m 
+Inner Time: 0.757174
+Scatter Time: 0.738979
+Entropy Time: 0.0172538
+Rebuild Time: 0.000341
+Iteration 0 Round Time: 0.257373
+Iteration 1 Round Time: 0.250771
+Iteration 2 Round Time: 0.24903
+<4>
+Benchmarking word: [30mb[0m[30mu[0m[30ml[0m[30ml[0m[30ms[0m 
+Inner Time: 1.00438
+Scatter Time: 0.982787
+Entropy Time: 0.0203679
+Rebuild Time: 0.000408
+Iteration 0 Round Time: 0.259824
+Iteration 1 Round Time: 0.251176
+Iteration 2 Round Time: 0.248901
+Iteration 3 Round Time: 0.24448
+<5>
+Benchmarking word: [30ms[0m[30mk[0m[30ml[0m[30mi[0m[30mm[0m 
+Inner Time: 0.724033
+Scatter Time: 0.705761
+Entropy Time: 0.0174578
+Rebuild Time: 0.00036
+Iteration 0 Round Time: 0.259033
+Iteration 1 Round Time: 0.252796
+Iteration 2 Round Time: 0.212204
+<4>
+Benchmarking word: [30mf[0m[30mu[0m[30mn[0m[30md[0m[30mi[0m 
+Inner Time: 0.766416
+Scatter Time: 0.747551
+Entropy Time: 0.0179317
+Rebuild Time: 0.000411
+Iteration 0 Round Time: 0.25922
+Iteration 1 Round Time: 0.254136
+Iteration 2 Round Time: 0.25306
+Iteration 3 Round Time: 0
+<5>
+Benchmarking word: [30mp[0m[30mz[0m[30ma[0m[30mz[0m[30mz[0m 
+Inner Time: 0.761448
+Scatter Time: 0.742275
+Entropy Time: 0.0182567
+Rebuild Time: 0.000322
+Iteration 0 Round Time: 0.258167
+Iteration 1 Round Time: 0.251442
+Iteration 2 Round Time: 0.251839
+<4>
+Benchmarking word: [30mt[0m[30mo[0m[30mx[0m[30mi[0m[30mc[0m 
+Inner Time: 0.467889
+Scatter Time: 0.453281
+Entropy Time: 0.0140158
+Rebuild Time: 0.000328
+Iteration 0 Round Time: 0.2578
+Iteration 1 Round Time: 0.210089
+Iteration 2 Round Time: 0
+<4>
+Benchmarking word: [30ms[0m[30mh[0m[30ma[0m[30mw[0m[30mm[0m 
+Inner Time: 0.750312
+Scatter Time: 0.731992
+Entropy Time: 0.0173778
+Rebuild Time: 0.000427
+Iteration 0 Round Time: 0.257755
+Iteration 1 Round Time: 0.250926
+Iteration 2 Round Time: 0.241631
+Iteration 3 Round Time: 0
+<5>
+Benchmarking word: [30mc[0m[30mr[0m[30mi[0m[30mm[0m[30me[0m 
+Inner Time: 0.741837
+Scatter Time: 0.723407
+Entropy Time: 0.0175998
+Rebuild Time: 0.000349
+Iteration 0 Round Time: 0.257799
+Iteration 1 Round Time: 0.250708
+Iteration 2 Round Time: 0.23333
+<4>
+Benchmarking word: [30mh[0m[30mo[0m[30mi[0m[30ms[0m[30me[0m 
+Inner Time: 0.509409
+Scatter Time: 0.494483
+Entropy Time: 0.0143098
+Rebuild Time: 0.0002
+Iteration 0 Round Time: 0.257681
+Iteration 1 Round Time: 0.251728
+<3>
+Benchmarking word: [30mb[0m[30mu[0m[30ms[0m[30mt[0m[30ms[0m 
+Inner Time: 0.756796
+Scatter Time: 0.73885
+Entropy Time: 0.0170898
+Rebuild Time: 0.000359
+Iteration 0 Round Time: 0.257648
+Iteration 1 Round Time: 0.250179
+Iteration 2 Round Time: 0.248969
+<4>
+Benchmarking word: [30mu[0m[30mr[0m[30mb[0m[30me[0m[30mx[0m 
+Inner Time: 0.757409
+Scatter Time: 0.739103
+Entropy Time: 0.0173758
+Rebuild Time: 0.000426
+Iteration 0 Round Time: 0.257492
+Iteration 1 Round Time: 0.250542
+Iteration 2 Round Time: 0.249375
+Iteration 3 Round Time: 0
+<5>
+Benchmarking word: [30mb[0m[30ml[0m[30mu[0m[30md[0m[30ms[0m 
+Inner Time: 0.513964
+Scatter Time: 0.498838
+Entropy Time: 0.0145378
+Rebuild Time: 0.000213
+Iteration 0 Round Time: 0.261027
+Iteration 1 Round Time: 0.252937
+<3>
+Benchmarking word: [30mt[0m[30me[0m[30mm[0m[30mp[0m[30mt[0m 
+Inner Time: 0.689387
+Scatter Time: 0.67093
+Entropy Time: 0.0174928
+Rebuild Time: 0.000336
+Iteration 0 Round Time: 0.25845
+Iteration 1 Round Time: 0.209329
+Iteration 2 Round Time: 0.221608
+<4>
+Benchmarking word: [30mi[0m[30mr[0m[30mo[0m[30mk[0m[30mo[0m 
+Inner Time: 0.790168
+Scatter Time: 0.770699
+Entropy Time: 0.0185509
+Rebuild Time: 0.00036
+Iteration 0 Round Time: 0.277791
+Iteration 1 Round Time: 0.263293
+Iteration 2 Round Time: 0.249084
+<4>
+Benchmarking word: [30mo[0m[30mn[0m[30ms[0m[30me[0m[30mt[0m 
+Inner Time: 0.506393
+Scatter Time: 0.492126
+Entropy Time: 0.0136198
+Rebuild Time: 0.00019
+Iteration 0 Round Time: 0.257688
+Iteration 1 Round Time: 0.248705
+<3>
+Benchmarking word: [30mr[0m[30mi[0m[30mf[0m[30me[0m[30mr[0m 
+Inner Time: 0.755677
+Scatter Time: 0.737547
+Entropy Time: 0.0172408
+Rebuild Time: 0.000333
+Iteration 0 Round Time: 0.257767
+Iteration 1 Round Time: 0.25007
+Iteration 2 Round Time: 0.24784
+<4>
+Benchmarking word: [30mc[0m[30ma[0m[30mb[0m[30me[0m[30mr[0m 
+Inner Time: 1.00454
+Scatter Time: 0.983844
+Entropy Time: 0.0195008
+Rebuild Time: 0.000437
+Iteration 0 Round Time: 0.257497
+Iteration 1 Round Time: 0.250403
+Iteration 2 Round Time: 0.248731
+Iteration 3 Round Time: 0.247911
+<5>
+Benchmarking word: [30mk[0m[30mh[0m[30mo[0m[30mu[0m[30mm[0m 
+Inner Time: 0.943376
+Scatter Time: 0.916688
+Entropy Time: 0.0254581
+Rebuild Time: 0.000264
+Iteration 0 Round Time: 0.335262
+Iteration 1 Round Time: 0.341979
+Iteration 2 Round Time: 0.266135
+<4>
+Benchmarking word: [30mm[0m[30mo[0m[30ms[0m[30me[0m[30md[0m 
+Inner Time: 0.779097
+Scatter Time: 0.760014
+Entropy Time: 0.0181941
+Rebuild Time: 0.000317
+Iteration 0 Round Time: 0.275857
+Iteration 1 Round Time: 0.260953
+Iteration 2 Round Time: 0.242287
+<4>
+Benchmarking word: [30mh[0m[30mo[0m[30mv[0m[30me[0m[30mn[0m 
+Inner Time: 0.755919
+Scatter Time: 0.737797
+Entropy Time: 0.0172178
+Rebuild Time: 0.000295
+Iteration 0 Round Time: 0.258173
+Iteration 1 Round Time: 0.250157
+Iteration 2 Round Time: 0.247589
+<4>
+Benchmarking word: [30ms[0m[30mi[0m[30mk[0m[30me[0m[30mr[0m 
+Inner Time: 0.702109
+Scatter Time: 0.684712
+Entropy Time: 0.0165008
+Rebuild Time: 0.000362
+Iteration 0 Round Time: 0.257787
+Iteration 1 Round Time: 0.245612
+Iteration 2 Round Time: 0.19871
+<4>
+Benchmarking word: [30ms[0m[30mp[0m[30ma[0m[30ml[0m[30md[0m 
+Inner Time: 0.709335
+Scatter Time: 0.691184
+Entropy Time: 0.0173128
+Rebuild Time: 0.000321
+Iteration 0 Round Time: 0.257665
+Iteration 1 Round Time: 0.255453
+Iteration 2 Round Time: 0.196217
+<4>
+Benchmarking word: [30me[0m[30mm[0m[30ma[0m[30mc[0m[30ms[0m 
+Inner Time: 0.522161
+Scatter Time: 0.507516
+Entropy Time: 0.0140138
+Rebuild Time: 0.000221
+Iteration 0 Round Time: 0.26014
+Iteration 1 Round Time: 0.262021
+<3>
+Benchmarking word: [30mr[0m[30me[0m[30mk[0m[30me[0m[30md[0m 
+Inner Time: 0.759166
+Scatter Time: 0.740971
+Entropy Time: 0.0173118
+Rebuild Time: 0.000333
+Iteration 0 Round Time: 0.260293
+Iteration 1 Round Time: 0.251815
+Iteration 2 Round Time: 0.247058
+<4>
+Benchmarking word: [30mo[0m[30mu[0m[30mp[0m[30mh[0m[30me[0m 
+Inner Time: 1.00561
+Scatter Time: 0.983361
+Entropy Time: 0.0210277
+Rebuild Time: 0.000413
+Iteration 0 Round Time: 0.258387
+Iteration 1 Round Time: 0.250827
+Iteration 2 Round Time: 0.252212
+Iteration 3 Round Time: 0.24418
+<5>
+Benchmarking word: [30mm[0m[30mu[0m[30mt[0m[30me[0m[30md[0m 
+Inner Time: 0.514102
+Scatter Time: 0.499374
+Entropy Time: 0.0140858
+Rebuild Time: 0.000225
+Iteration 0 Round Time: 0.26204
+Iteration 1 Round Time: 0.252062
+<3>
+Benchmarking word: [30mp[0m[30mr[0m[30mi[0m[30me[0m[30mr[0m 
+Inner Time: 0.730471
+Scatter Time: 0.712103
+Entropy Time: 0.0174699
+Rebuild Time: 0.000796
+Iteration 0 Round Time: 0.261669
+Iteration 1 Round Time: 0.253289
+Iteration 2 Round Time: 0.215513
+<4>
+Benchmarking word: [30mg[0m[30me[0m[30ma[0m[30mn[0m[30ms[0m 
+Inner Time: 0.774037
+Scatter Time: 0.755945
+Entropy Time: 0.0171749
+Rebuild Time: 0.000301
+Iteration 0 Round Time: 0.265663
+Iteration 1 Round Time: 0.258395
+Iteration 2 Round Time: 0.249979
+<4>
+Benchmarking word: [30mb[0m[30me[0m[30mt[0m[30mt[0m[30my[0m 
+Inner Time: 0.763394
+Scatter Time: 0.74509
+Entropy Time: 0.0174238
+Rebuild Time: 0.000359
+Iteration 0 Round Time: 0.259677
+Iteration 1 Round Time: 0.254112
+Iteration 2 Round Time: 0.249605
+<4>
+Benchmarking word: [30mr[0m[30me[0m[30mc[0m[30mt[0m[30mo[0m 
+Inner Time: 0.512604
+Scatter Time: 0.497883
+Entropy Time: 0.0140898
+Rebuild Time: 0.000214
+Iteration 0 Round Time: 0.258683
+Iteration 1 Round Time: 0.253921
+<3>
+Benchmarking word: [30ma[0m[30mi[0m[30mr[0m[30mt[0m[30ms[0m 
+Inner Time: 0.261289
+Scatter Time: 0.250434
+Entropy Time: 0.0105608
+Rebuild Time: 0.000116
+Iteration 0 Round Time: 0.261289
+<2>
+Benchmarking word: [30mb[0m[30mu[0m[30md[0m[30mi[0m[30ms[0m 
+Inner Time: 0.76377
+Scatter Time: 0.745265
+Entropy Time: 0.0175908
+Rebuild Time: 0.000332
+Iteration 0 Round Time: 0.26107
+Iteration 1 Round Time: 0.253633
+Iteration 2 Round Time: 0.249067
+<4>
+Benchmarking word: [30mt[0m[30my[0m[30mn[0m[30md[0m[30me[0m 
+Inner Time: 0.667132
+Scatter Time: 0.649164
+Entropy Time: 0.0170398
+Rebuild Time: 0.000326
+Iteration 0 Round Time: 0.259672
+Iteration 1 Round Time: 0.213985
+Iteration 2 Round Time: 0.193475
+<4>
+Benchmarking word: [30ml[0m[30mu[0m[30mn[0m[30mt[0m[30ms[0m 
+Inner Time: 0.514968
+Scatter Time: 0.500169
+Entropy Time: 0.0141578
+Rebuild Time: 0.000258
+Iteration 0 Round Time: 0.262183
+Iteration 1 Round Time: 0.252785
+<3>
+Benchmarking word: [30mt[0m[30mr[0m[30mo[0m[30ma[0m[30mk[0m 
+Inner Time: 0.467196
+Scatter Time: 0.452827
+Entropy Time: 0.0137798
+Rebuild Time: 0.000247
+Iteration 0 Round Time: 0.261093
+Iteration 1 Round Time: 0.206103
+<3>
+Benchmarking word: [30mz[0m[30ma[0m[30mr[0m[30mf[0m[30ms[0m 
+Inner Time: 1.01355
+Scatter Time: 0.992537
+Entropy Time: 0.0198449
+Rebuild Time: 0.000543
+Iteration 0 Round Time: 0.261062
+Iteration 1 Round Time: 0.251937
+Iteration 2 Round Time: 0.251873
+Iteration 3 Round Time: 0.248683
+Iteration 4 Round Time: 0
+<6>
+Benchmarking word: [30ms[0m[30mw[0m[30mi[0m[30mt[0m[30ms[0m 
+Inner Time: 0.762378
+Scatter Time: 0.744331
+Entropy Time: 0.0171898
+Rebuild Time: 0.000303
+Iteration 0 Round Time: 0.259743
+Iteration 1 Round Time: 0.253282
+Iteration 2 Round Time: 0.249353
+<4>
+Benchmarking word: [30ms[0m[30mm[0m[30ma[0m[30ml[0m[30mm[0m 
+Inner Time: 0.786949
+Scatter Time: 0.767994
+Entropy Time: 0.0180109
+Rebuild Time: 0.000337
+Iteration 0 Round Time: 0.264145
+Iteration 1 Round Time: 0.259204
+Iteration 2 Round Time: 0.2636
+<4>
+Benchmarking word: [30ma[0m[30mb[0m[30mb[0m[30me[0m[30md[0m 
+Inner Time: 0.536328
+Scatter Time: 0.520517
+Entropy Time: 0.0151771
+Rebuild Time: 0.000228
+Iteration 0 Round Time: 0.281858
+Iteration 1 Round Time: 0.25447
+<3>
+Benchmarking word: [30ms[0m[30mi[0m[30mm[0m[30ma[0m[30ms[0m 
+Inner Time: 0.757579
+Scatter Time: 0.739465
+Entropy Time: 0.0172518
+Rebuild Time: 0.000407
+Iteration 0 Round Time: 0.25894
+Iteration 1 Round Time: 0.251615
+Iteration 2 Round Time: 0.247024
+Iteration 3 Round Time: 0
+<5>
+Benchmarking word: [30mp[0m[30me[0m[30ml[0m[30ml[0m[30ms[0m 
+Inner Time: 1.00435
+Scatter Time: 0.983213
+Entropy Time: 0.0199749
+Rebuild Time: 0.000446
+Iteration 0 Round Time: 0.258592
+Iteration 1 Round Time: 0.251041
+Iteration 2 Round Time: 0.248644
+Iteration 3 Round Time: 0.246074
+<5>
+Benchmarking word: [30mj[0m[30ma[0m[30mm[0m[30mb[0m[30ms[0m 
+Inner Time: 0.780715
+Scatter Time: 0.762408
+Entropy Time: 0.0174468
+Rebuild Time: 0.000318
+Iteration 0 Round Time: 0.25801
+Iteration 1 Round Time: 0.254646
+Iteration 2 Round Time: 0.268059
+<4>
+Benchmarking word: [30mf[0m[30mo[0m[30mu[0m[30mn[0m[30md[0m 
+Inner Time: 1.05867
+Scatter Time: 1.03559
+Entropy Time: 0.0218718
+Rebuild Time: 0.000401
+Iteration 0 Round Time: 0.270099
+Iteration 1 Round Time: 0.261032
+Iteration 2 Round Time: 0.291385
+Iteration 3 Round Time: 0.236149
+<5>
+Benchmarking word: [30mu[0m[30mr[0m[30me[0m[30mn[0m[30ma[0m 
+Inner Time: 0.770936
+Scatter Time: 0.752348
+Entropy Time: 0.0176829
+Rebuild Time: 0.000423
+Iteration 0 Round Time: 0.262651
+Iteration 1 Round Time: 0.253014
+Iteration 2 Round Time: 0.255271
+Iteration 3 Round Time: 0
+<5>
+Benchmarking word: [30mi[0m[30mm[0m[30mi[0m[30md[0m[30mo[0m 
+Inner Time: 0.781412
+Scatter Time: 0.761815
+Entropy Time: 0.0186679
+Rebuild Time: 0.000311
+Iteration 0 Round Time: 0.273152
+Iteration 1 Round Time: 0.255435
+Iteration 2 Round Time: 0.252825
+<4>
+Benchmarking word: [30mt[0m[30mo[0m[30mt[0m[30me[0m[30mm[0m 
+Inner Time: 0.47208
+Scatter Time: 0.457629
+Entropy Time: 0.0138298
+Rebuild Time: 0.000206
+Iteration 0 Round Time: 0.262026
+Iteration 1 Round Time: 0.210054
+<3>
+Benchmarking word: [30mb[0m[30me[0m[30mz[0m[30mz[0m[30my[0m 
+Inner Time: 1.02734
+Scatter Time: 1.00482
+Entropy Time: 0.0212697
+Rebuild Time: 0.00052
+Iteration 0 Round Time: 0.25785
+Iteration 1 Round Time: 0.252921
+Iteration 2 Round Time: 0.254208
+Iteration 3 Round Time: 0.262356
+Iteration 4 Round Time: 0
+<6>
+Benchmarking word: [30md[0m[30mr[0m[30mo[0m[30mw[0m[30ms[0m 
+Inner Time: 0.769869
+Scatter Time: 0.751482
+Entropy Time: 0.0174769
+Rebuild Time: 0.000375
+Iteration 0 Round Time: 0.267215
+Iteration 1 Round Time: 0.255622
+Iteration 2 Round Time: 0.247032
+<4>
+Benchmarking word: [30mr[0m[30mo[0m[30mr[0m[30mi[0m[30me[0m 
+Inner Time: 0.521956
+Scatter Time: 0.507011
+Entropy Time: 0.0143578
+Rebuild Time: 0.000304
+Iteration 0 Round Time: 0.263438
+Iteration 1 Round Time: 0.258518
+Iteration 2 Round Time: 0
+<4>
+Benchmarking word: [30mf[0m[30ma[0m[30mu[0m[30mt[0m[30ms[0m 
+Inner Time: 0.765342
+Scatter Time: 0.747517
+Entropy Time: 0.0168798
+Rebuild Time: 0.000353
+Iteration 0 Round Time: 0.26561
+Iteration 1 Round Time: 0.254631
+Iteration 2 Round Time: 0.245101
+<4>
+Benchmarking word: [30mf[0m[30ml[0m[30mu[0m[30me[0m[30my[0m 
+Inner Time: 1.03114
+Scatter Time: 1.00894
+Entropy Time: 0.0209959
+Rebuild Time: 0.000419
+Iteration 0 Round Time: 0.265338
+Iteration 1 Round Time: 0.264958
+Iteration 2 Round Time: 0.255984
+Iteration 3 Round Time: 0.244857
+<5>
+Benchmarking word: [30mc[0m[30mo[0m[30mw[0m[30me[0m[30mr[0m 
+Inner Time: 1.00468
+Scatter Time: 0.983335
+Entropy Time: 0.0201479
+Rebuild Time: 0.000439
+Iteration 0 Round Time: 0.259613
+Iteration 1 Round Time: 0.251907
+Iteration 2 Round Time: 0.249467
+Iteration 3 Round Time: 0.243696
+<5>
+Benchmarking word: [30mr[0m[30ma[0m[30mr[0m[30me[0m[30ms[0m 
+Inner Time: 0.991237
+Scatter Time: 0.970899
+Entropy Time: 0.0190808
+Rebuild Time: 0.000448
+Iteration 0 Round Time: 0.261489
+Iteration 1 Round Time: 0.247906
+Iteration 2 Round Time: 0.24433
+Iteration 3 Round Time: 0.237512
+<5>
+Benchmarking word: [30mn[0m[30ma[0m[30mr[0m[30mi[0m[30ms[0m 
+Inner Time: 0.510351
+Scatter Time: 0.496105
+Entropy Time: 0.0136398
+Rebuild Time: 0.000231
+Iteration 0 Round Time: 0.259346
+Iteration 1 Round Time: 0.251005
+<3>
+Benchmarking word: [30mb[0m[30mr[0m[30mo[0m[30mo[0m[30mm[0m 
+Inner Time: 0.758886
+Scatter Time: 0.74051
+Entropy Time: 0.0174988
+Rebuild Time: 0.000278
+Iteration 0 Round Time: 0.258108
+Iteration 1 Round Time: 0.254482
+Iteration 2 Round Time: 0.246296
+<4>
+Benchmarking word: [30mb[0m[30mo[0m[30mo[0m[30mt[0m[30mh[0m 
+Inner Time: 0.778423
+Scatter Time: 0.75964
+Entropy Time: 0.0178688
+Rebuild Time: 0.000319
+Iteration 0 Round Time: 0.266067
+Iteration 1 Round Time: 0.256952
+Iteration 2 Round Time: 0.255404
+<4>
+Benchmarking word: [30mh[0m[30mu[0m[30mz[0m[30mz[0m[30ma[0m 
+Inner Time: 1.03556
+Scatter Time: 1.01247
+Entropy Time: 0.0218798
+Rebuild Time: 0.000498
+Iteration 0 Round Time: 0.269921
+Iteration 1 Round Time: 0.256981
+Iteration 2 Round Time: 0.256632
+Iteration 3 Round Time: 0.252027
+<5>
+Benchmarking word: [30mp[0m[30ml[0m[30mi[0m[30me[0m[30ms[0m 
+Inner Time: 0.754653
+Scatter Time: 0.736667
+Entropy Time: 0.0170679
+Rebuild Time: 0.000357
+Iteration 0 Round Time: 0.263315
+Iteration 1 Round Time: 0.252065
+Iteration 2 Round Time: 0.239273
+<4>
+Benchmarking word: [30mp[0m[30ma[0m[30mv[0m[30me[0m[30mn[0m 
+Inner Time: 0.982625
+Scatter Time: 0.961827
+Entropy Time: 0.0196358
+Rebuild Time: 0.000439
+Iteration 0 Round Time: 0.259274
+Iteration 1 Round Time: 0.252932
+Iteration 2 Round Time: 0.248417
+Iteration 3 Round Time: 0.222002
+<5>
+Benchmarking word: [30mc[0m[30ma[0m[30ms[0m[30mt[0m[30me[0m 
+Inner Time: 0.502029
+Scatter Time: 0.488204
+Entropy Time: 0.0132588
+Rebuild Time: 0.000238
+Iteration 0 Round Time: 0.25798
+Iteration 1 Round Time: 0.244049
+<3>
+Benchmarking word: [30mh[0m[30me[0m[30mc[0m[30mh[0m[30mt[0m 
+Inner Time: 0.757071
+Scatter Time: 0.73876
+Entropy Time: 0.0174218
+Rebuild Time: 0.00037
+Iteration 0 Round Time: 0.258231
+Iteration 1 Round Time: 0.250477
+Iteration 2 Round Time: 0.248363
+<4>
+Benchmarking word: [30mr[0m[30me[0m[30mg[0m[30me[0m[30ms[0m 
+Inner Time: 0.937808
+Scatter Time: 0.91706
+Entropy Time: 0.0194958
+Rebuild Time: 0.000513
+Iteration 0 Round Time: 0.257636
+Iteration 1 Round Time: 0.248227
+Iteration 2 Round Time: 0.217307
+Iteration 3 Round Time: 0.214638
+<5>
+Benchmarking word: [30mg[0m[30my[0m[30mp[0m[30mo[0m[30ms[0m 
+Inner Time: 0.760412
+Scatter Time: 0.741909
+Entropy Time: 0.0176248
+Rebuild Time: 0.000356
+Iteration 0 Round Time: 0.259267
+Iteration 1 Round Time: 0.251499
+Iteration 2 Round Time: 0.249646
+<4>
+Benchmarking word: [30mt[0m[30mr[0m[30ma[0m[30mn[0m[30mq[0m 
+Inner Time: 0.653242
+Scatter Time: 0.635742
+Entropy Time: 0.0166018
+Rebuild Time: 0.000348
+Iteration 0 Round Time: 0.257795
+Iteration 1 Round Time: 0.206121
+Iteration 2 Round Time: 0.189326
+<4>
+Benchmarking word: [30mc[0m[30ml[0m[30ma[0m[30mm[0m[30me[0m 
+Inner Time: 0.759182
+Scatter Time: 0.740887
+Entropy Time: 0.0174057
+Rebuild Time: 0.00035
+Iteration 0 Round Time: 0.257446
+Iteration 1 Round Time: 0.257097
+Iteration 2 Round Time: 0.244639
+<4>
+Benchmarking word: [30mr[0m[30me[0m[30mb[0m[30ma[0m[30mr[0m 
+Inner Time: 0.733808
+Scatter Time: 0.715589
+Entropy Time: 0.0174109
+Rebuild Time: 0.000319
+Iteration 0 Round Time: 0.263496
+Iteration 1 Round Time: 0.250383
+Iteration 2 Round Time: 0.219929
+<4>
+Benchmarking word: [30mj[0m[30ma[0m[30mk[0m[30me[0m[30mr[0m 
+Inner Time: 1.24223
+Scatter Time: 1.21851
+Entropy Time: 0.0223508
+Rebuild Time: 0.00061
+Iteration 0 Round Time: 0.257338
+Iteration 1 Round Time: 0.249263
+Iteration 2 Round Time: 0.248189
+Iteration 3 Round Time: 0.247414
+Iteration 4 Round Time: 0.24003
+<6>
+Benchmarking word: [30mr[0m[30ma[0m[30mk[0m[30me[0m[30me[0m 
+Inner Time: 0.983283
+Scatter Time: 0.962576
+Entropy Time: 0.0195099
+Rebuild Time: 0.000372
+Iteration 0 Round Time: 0.260704
+Iteration 1 Round Time: 0.253641
+Iteration 2 Round Time: 0.250438
+Iteration 3 Round Time: 0.2185
+<5>
+Benchmarking word: [30me[0m[30ml[0m[30me[0m[30mm[0m[30mi[0m 
+Inner Time: 0.76844
+Scatter Time: 0.74942
+Entropy Time: 0.0181417
+Rebuild Time: 0.000335
+Iteration 0 Round Time: 0.25933
+Iteration 1 Round Time: 0.254831
+Iteration 2 Round Time: 0.254279
+<4>
+Benchmarking word: [30ms[0m[30mh[0m[30me[0m[30mo[0m[30ml[0m 
+Inner Time: 0.7328
+Scatter Time: 0.714309
+Entropy Time: 0.0175808
+Rebuild Time: 0.000323
+Iteration 0 Round Time: 0.261354
+Iteration 1 Round Time: 0.254316
+Iteration 2 Round Time: 0.21713
+<4>
+Benchmarking word: [30mr[0m[30me[0m[30ma[0m[30ms[0m[30mt[0m 
+Inner Time: 0.261525
+Scatter Time: 0.250592
+Entropy Time: 0.0106308
+Rebuild Time: 6.7e-05
+Iteration 0 Round Time: 0.261525
+<2>
+Benchmarking word: [30ms[0m[30mc[0m[30ma[0m[30mu[0m[30mr[0m 
+Inner Time: 0.512427
+Scatter Time: 0.498025
+Entropy Time: 0.0138148
+Rebuild Time: 0.000201
+Iteration 0 Round Time: 0.259018
+Iteration 1 Round Time: 0.253409
+<3>
+Benchmarking word: [30mg[0m[30mu[0m[30ml[0m[30me[0m[30ms[0m 
+Inner Time: 0.750479
+Scatter Time: 0.732659
+Entropy Time: 0.0169838
+Rebuild Time: 0.000365
+Iteration 0 Round Time: 0.259894
+Iteration 1 Round Time: 0.250872
+Iteration 2 Round Time: 0.239713
+<4>
+Benchmarking word: [30mn[0m[30ma[0m[30mc[0m[30mr[0m[30me[0m 
+Inner Time: 0.509482
+Scatter Time: 0.49525
+Entropy Time: 0.0136398
+Rebuild Time: 0.000225
+Iteration 0 Round Time: 0.258143
+Iteration 1 Round Time: 0.251339
+<3>
+Benchmarking word: [30mb[0m[30mr[0m[30mu[0m[30mg[0m[30mh[0m 
+Inner Time: 0.514247
+Scatter Time: 0.49912
+Entropy Time: 0.0145318
+Rebuild Time: 0.000313
+Iteration 0 Round Time: 0.262166
+Iteration 1 Round Time: 0.252081
+Iteration 2 Round Time: 0
+<4>
+Benchmarking word: [30ms[0m[30me[0m[30mn[0m[30mo[0m[30mr[0m 
+Inner Time: 0.731448
+Scatter Time: 0.713482
+Entropy Time: 0.0170639
+Rebuild Time: 0.000291
+Iteration 0 Round Time: 0.262861
+Iteration 1 Round Time: 0.252266
+Iteration 2 Round Time: 0.216321
+<4>
+Benchmarking word: [30ml[0m[30mi[0m[30mn[0m[30mc[0m[30mh[0m 
+Inner Time: 0.510539
+Scatter Time: 0.495192
+Entropy Time: 0.0147478
+Rebuild Time: 0.000214
+Iteration 0 Round Time: 0.259318
+Iteration 1 Round Time: 0.251221
+<3>
+Benchmarking word: [30mh[0m[30mo[0m[30my[0m[30ma[0m[30ms[0m 
+Inner Time: 0.757463
+Scatter Time: 0.739127
+Entropy Time: 0.0173728
+Rebuild Time: 0.000352
+Iteration 0 Round Time: 0.258585
+Iteration 1 Round Time: 0.250883
+Iteration 2 Round Time: 0.247995
+<4>
+Benchmarking word: [30mr[0m[30my[0m[30mp[0m[30me[0m[30mr[0m 
+Inner Time: 0.751206
+Scatter Time: 0.733304
+Entropy Time: 0.0170188
+Rebuild Time: 0.000435
+Iteration 0 Round Time: 0.257589
+Iteration 1 Round Time: 0.250169
+Iteration 2 Round Time: 0.243448
+Iteration 3 Round Time: 0
+<5>
+Benchmarking word: [30mf[0m[30mo[0m[30mr[0m[30ma[0m[30my[0m 
+Inner Time: 0.752782
+Scatter Time: 0.735251
+Entropy Time: 0.0166418
+Rebuild Time: 0.000321
+Iteration 0 Round Time: 0.257347
+Iteration 1 Round Time: 0.250072
+Iteration 2 Round Time: 0.245363
+<4>
+Benchmarking word: [30mg[0m[30mu[0m[30my[0m[30ms[0m[30me[0m 
+Inner Time: 0.757114
+Scatter Time: 0.73855
+Entropy Time: 0.0176968
+Rebuild Time: 0.000362
+Iteration 0 Round Time: 0.257691
+Iteration 1 Round Time: 0.250489
+Iteration 2 Round Time: 0.248934
+<4>
+Benchmarking word: [30md[0m[30mo[0m[30ms[0m[30me[0m[30ms[0m 
+Inner Time: 1.21668
+Scatter Time: 1.19294
+Entropy Time: 0.0222948
+Rebuild Time: 0.000593
+Iteration 0 Round Time: 0.257422
+Iteration 1 Round Time: 0.25039
+Iteration 2 Round Time: 0.237342
+Iteration 3 Round Time: 0.236993
+Iteration 4 Round Time: 0.234532
+<6>
+Average time taken: 0.76017 sec per word
