@@ -4,8 +4,10 @@ from pathlib import Path
 import pandas as pd
 import seaborn as sns
 
+ghc_result_2 = pd.read_csv('scatter_reduce/ghc_benchmark_results_2d_mini.csv')
 ghc_result = pd.read_csv('scatter_reduce/ghc_benchmark_results_2d.csv')
-
+ghc_result = ghc_result[ghc_result['mode'] != 'G']
+ghc_result  = pd.concat([ghc_result_2, ghc_result])
 serial_df = ghc_result[ghc_result['mode'] == 'S']
 # print(serial_df)
 # Compute normative times for input/output pairs
