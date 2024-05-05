@@ -1,11 +1,14 @@
-CXX = g++-13
-# CXX = g++
+CXX = g++
+CXX_13 = g++-13
+
 CXXFLAGS = -std=c++17 -Wall -O3 -fopenmp
 
 # List of source files
 SOURCES = main.cpp mathutils.cpp word.cpp utils.cpp
-# Object files can be deduced from the source files list
+# Object files for the default compiler
 OBJECTS = $(SOURCES:.cpp=.o)
+# Object files for the special compiler
+OBJECTS_SPECIAL = $(SOURCES:.cpp=.o-special)
 # The name of the final executable
 EXECUTABLE = out
 
@@ -21,12 +24,15 @@ $(EXECUTABLE): $(OBJECTS)
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# Rule to build with the special compiler
+special: $(OBJECTS_SPECIAL)
+	$(CXX_13) $(CXXFLAGS) -o $(EXECUTABLE) $^
+
+# Pattern rule to compile with special compiler
+%.o-special: %.cpp
+	$(CXX_13) $(CXXFLAGS) -c $< -o $@
+
 # Phony target to clean the build files
 .PHONY: clean
 clean:
-	rm -f $(OBJECTS) $(EXECUTABLE)
-
-# Dependencies - you would fill these in with the specific header dependencies for each source
-mathutils.o: mathutils.h
-word.o: word.h
-utils.o: utils.h
+	rm -f $(OBJECTS) $(OBJECTS_SPECIAL) $(EXECUTABLE)
