@@ -35,8 +35,8 @@ exp_params = []
 for param in specific_params:
     for n in thread_range:
         for legal_file in ['allowed_words.txt']:
-            for test_file in ['subset_1.txt']:
-            # for test_file in ['subset_100.txt']:
+            # for test_file in ['subset_1.txt']:
+            for test_file in ['subset_100.txt']:
                 combo = param.copy()  # Start with the specific settings
                 combo.update({'-n': n, '-t': test_file, '-f': legal_file})  # Add common settings
                 exp_params.append(combo)
