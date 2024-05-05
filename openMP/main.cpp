@@ -420,7 +420,6 @@ int solver(priors_t &priors,
                     entropy_time[iters] += TIME(scatter_end, entropy_end);
                 }
             } else if (mode == 'g') { // More than 2 words: Compute the entropy for ALL words
-                auto inner_start = timestamp;
                 #pragma omp parallel for schedule(dynamic) private(probability_scratch)
                 for(int word_idx = 0; word_idx < num_words; word_idx++){
                     probability_scratch.assign(num_patterns, 0.0f);
@@ -452,7 +451,6 @@ int solver(priors_t &priors,
                     // std::cout << "Colors: " << num_patterns << "\n";
                     // scratch of size thread x input x num_patterns
                     int candidate_span = ceil_xdivy(candidates, omp_get_num_threads());
-                    auto inner_start = timestamp;
                     auto scatter_start = timestamp;
                     
                     #pragma omp parallel
@@ -478,18 +476,18 @@ int solver(priors_t &priors,
                         // profiling indicates read are order of magnitude faster than write i.e. first thread reaches end of scatter in appropriately sped up time.
                         // unclear why we're not seeing same speedup as in sred.cpp
                     }
-                    auto scatter_end = timestamp;
-                    auto scatter_time = TIME(scatter_start, scatter_end);
+                    // auto scatter_end = timestamp;
+                    // auto scatter_time = TIME(scatter_start, scatter_end);
                     // separate scatter / entropy for refactorability, ease of reading, benchmarking
-                    auto entropy_start = timestamp;
+                    // auto entropy_start = timestamp;
                     #pragma omp parallel for schedule(dynamic)
                     for (int word_idx = 0; word_idx < num_words; word_idx++){
                         {
                         entropys[word_idx] = entropy_compute(data_out[word_idx], prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
                         }
                     }
-                    auto entropy_end = timestamp;
-                    auto entropy_time = TIME(entropy_start, entropy_end);
+                    // auto entropy_end = timestamp;
+                    // auto entropy_time = TIME(entropy_start, entropy_end);
                     // std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
                     // std::cout << "Scatter Time: " << scatter_time << "\n";
                     // std::cout << "Entropy Time: " << entropy_time << "\n";
