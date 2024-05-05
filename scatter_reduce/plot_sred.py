@@ -22,11 +22,12 @@ print(ghc_result.head())
 serial_df = ghc_result[ghc_result['mode'] == 'S']
 sns.set_style("whitegrid")
 sns.despine()
-palette = sns.color_palette("viridis", ghc_result['threads'].nunique())
+palette = sns.color_palette("flare", ghc_result['threads'].nunique())
 f = plt.figure(figsize=(4, 4))
 sns.lineplot(data=serial_df, x='input', y='time', hue='output', ax=f.gca())
 # change legend title to "Scatter Output"
 plt.legend(title='Scatter Output')
+
 # set labels to "Input Size" and "Time (s)"
 plt.xlabel('Input Size')
 plt.ylabel('Time (s)')
@@ -49,20 +50,19 @@ g.add_legend()
 reduct_df = ghc_result[ghc_result['mode'] == 'R']
 f = plt.figure(figsize=(6, 6))
 # ax = sns.scatterplot(data=reduct_df, x='input', y='output', hue='speedup', palette=palette, ax=f.gca())
-g = sns.FacetGrid(reduct_df, col='output', hue='threads', palette=palette)
+g = sns.FacetGrid(reduct_df, col='output', hue='threads', palette=palette, aspect=0.6)
 g.map(sns.lineplot, 'input', 'speedup')
 # labels
 sns.set_style("whitegrid")
 sns.despine()
-g.set_axis_labels('Input Size', 'Speedup')
-g.set_titles('Output Size: {col_name}')
-g.add_legend()
-
+g.set_axis_labels('In', 'Speedup')
+g.set_titles('Out: {col_name}')
+g.add_legend(title='Threads')
 #%%
 reduct_df = ghc_result[ghc_result['mode'] == 'M']
 f = plt.figure(figsize=(6, 6))
 # ax = sns.scatterplot(data=reduct_df, x='input', y='output', hue='speedup', palette=palette, ax=f.gca())
-g = sns.FacetGrid(reduct_df, col='output', hue='threads', palette=palette)
+g = sns.FacetGrid(reduct_df, col='output', hue='threads', palette=palette, aspect=0.6)
 g.map(sns.lineplot, 'input', 'speedup')
 # labels
 sns.set_style("whitegrid")
@@ -88,6 +88,7 @@ plt.xlabel('Speedup - Manual')
 plt.ylabel('Speedup - OMP Reduce')
 plt.axline((1, 1), slope=1, color='red', linestyle='--')  # Adding a diagonal line for reference
 # match axes
+plt.rcParams.update({'font.size': 16})
 plt.gca().set_aspect('equal', adjustable='box')
 # match axis ticks
 plt.locator_params(axis='x', nbins=5)

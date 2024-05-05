@@ -405,8 +405,8 @@ int solver(priors_t &priors,
                 guess = (*src_idx_ref)[0];
             }
         } else {
+            auto inner_start = timestamp;
             if (mode == 's') { // serial
-                auto inner_start = timestamp;
                 for(int word_idx = 0; word_idx < num_words; word_idx++){
                     probability_scratch.assign(num_patterns, 0.0f);
                     auto scatter_start = timestamp;
@@ -419,8 +419,6 @@ int solver(priors_t &priors,
                     scatter_time[iters] += TIME(scatter_start, scatter_end);
                     entropy_time[iters] += TIME(scatter_end, entropy_end);
                 }
-                auto inner_end = timestamp;
-                inner_time[iters] = TIME(inner_start, inner_end);
             } else if (mode == 'g') { // More than 2 words: Compute the entropy for ALL words
                 auto inner_start = timestamp;
                 #pragma omp parallel for schedule(dynamic) private(probability_scratch)
@@ -436,8 +434,6 @@ int solver(priors_t &priors,
                         // prior_sum) + (priors_scratch[word_idx] / prior_sum);
                         prior_sum) + ((*priors_ref)[word_idx] / prior_sum);
                 }
-                auto inner_end = timestamp;
-                inner_time[iters] = TIME(inner_start, inner_end);
             } else if (mode == 'c') { // Candidate parallel - absurdly slow
                 if (rebuild) {
                     // not implemented - rebuilding gains comes from reducing scatter read, not scatter write
@@ -494,7 +490,6 @@ int solver(priors_t &priors,
                     }
                     auto entropy_end = timestamp;
                     auto entropy_time = TIME(entropy_start, entropy_end);
-                    auto inner_end = timestamp;
                     // std::cout << "Inner Time: " << TIME(inner_start, inner_end) << "\n";
                     // std::cout << "Scatter Time: " << scatter_time << "\n";
                     // std::cout << "Entropy Time: " << entropy_time << "\n";
@@ -513,6 +508,8 @@ int solver(priors_t &priors,
                     }
                 }
             }
+            auto inner_end = timestamp;
+            inner_time[iters] = TIME(inner_start, inner_end);
             // Find the word that maximizes the expected entropy entropy.
             guess = arg_max(entropys);
         }

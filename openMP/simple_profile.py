@@ -50,6 +50,7 @@ df = pd.DataFrame({
     'Update Time': rebuild_times,
     'Rebuild': False
 })
+# delete inner time
 df_rebuild = pd.DataFrame({
     'Word': words_rebuild,
     'Inner Time': inner_times_rebuild,
@@ -60,7 +61,8 @@ df_rebuild = pd.DataFrame({
     'Rebuild': True
 })
 df = pd.concat([df, df_rebuild])
-df_melted = pd.melt(df, id_vars=['Rebuild'], value_vars=['Inner Time', 'Scatter Time', 'Entropy Time', 'Update Time'], var_name='Component', value_name='Time')
+df = df.drop(columns=['Inner Time'])
+df_melted = pd.melt(df, id_vars=['Rebuild'], value_vars=['Scatter Time', 'Entropy Time', 'Update Time'], var_name='Component', value_name='Time')
 # Display the melted DataFrame
 print(df_melted)
 #%%
@@ -73,7 +75,7 @@ fontsize = 20
 plt.rcParams.update({'font.size': fontsize, 'axes.labelsize': fontsize, 'xtick.labelsize': fontsize, 'ytick.labelsize': fontsize, 'legend.fontsize': fontsize, 'figure.titlesize': fontsize, 'legend.title_fontsize': fontsize})
 plt.xticks(rotation=15)
 ax.set_xlabel('')
-ax.set_title('Serial Workload Profile', fontsize=fontsize)
+# ax.set_title('Serial Workload Profile', fontsize=fontsize)
 
 #%%
 # Make new df based on round times

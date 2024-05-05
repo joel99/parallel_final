@@ -52,7 +52,11 @@ g.add_legend()
 
 #%%
 palette = sns.color_palette("flare", ghc_result['threads'].nunique())
-reduct_df = ghc_result[ghc_result['mode'].isin(['R', 'G'])]
+reduct_df = ghc_result[ghc_result['mode'].isin(['R', 'G', 'C'])]
+# modify mode C + capacity 3 to mode C3
+reduct_df.loc[(reduct_df['mode'] == 'C') & (reduct_df['capacity'] == 1), 'mode'] = 'C1'
+reduct_df.loc[(reduct_df['mode'] == 'C') & (reduct_df['capacity'] == 9), 'mode'] = 'C9'
+reduct_df = reduct_df[reduct_df['mode'].isin(['R', 'G', 'C1', 'C9'])]
 g = sns.FacetGrid(reduct_df, row='mode', col='output', hue='threads', palette=palette)
 g.map(sns.lineplot, 'input', 'speedup')
 # labels
@@ -63,7 +67,8 @@ plt.rcParams.update({'font.size': 16})
 plt.locator_params(axis='x', nbins=5)
 plt.locator_params(axis='y', nbins=5)
 g.set_axis_labels('Input Size', 'Speedup')
-g.set_titles('Output Size: {col_name}')
+g.set_titles('')
+# g.set_titles('Output: {col_name} Row: {row_name}')
 # set row labels - Guess speedup vs Hybrid speedup, respectively
 # label the first row "Guess" and the second row "Hybrid"
 g.add_legend(title='Threads')
@@ -98,7 +103,7 @@ sns.scatterplot(data=pivot_df, x='G', y='C', hue='threads', palette='viridis', s
 
 # Enhance the plot
 plt.title('(2D) Speedup over Problem Sizes')
-plt.xlabel('Speedup - Guess/Data Parallel')
+plt.xlabel('Speedup - Across/Data Parallel')
 plt.ylabel('Speedup - Hybrid Parallel')
 plt.axline((1, 1), slope=1, color='red', linestyle='--')  # Adding a diagonal line for reference
 # match axes
