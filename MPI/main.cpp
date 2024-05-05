@@ -48,6 +48,7 @@ void usage(char *exec_name){
     std::cout << "Usage:\n" << exec_name << " -f <word list> [-p <prior weights> -t <test list> -m <maximum word length> -r -v] \n";
     std::cout << "-v: verbose mode\n-r: use randomized priors";
     std::cout << "-m: specifies the maximum word length. Must be in between 1 and 8 (default)";
+    std::cout << "-M: specifies the program Mode. 'D' - Default mode, 'O' - On the Fly Computation, 'P' - On the Fly Computation with Opener Preprocessing.";
     std::cout << "The test list must contain words in the word list\n";
     }
 
@@ -448,6 +449,863 @@ int solver(priors_t &priors,
     return iters;
 }
 
+/************************************
+ * Solver with No Precomputation
+*************************************/
+
+/**
+ * Verbose Mode Solver for MPI: Requires word list. 
+ * Computes the pattern on the fly and does not use the pattern matrix as the
+ * input. This implementation also implicitly incorporates rebuilding strategies
+ * 
+ * @param words - The list of words, required for this implementation
+ * @param priors - The prior weights of each word. 
+ * @param prior_sum - The sum of all prior weights, returned by the function
+ *                    that generates the vector of prior weights
+ * @param answer - The WORD INDEX of the correct word.
+ * @warning This function makes its own copy of prior vectors
+*/
+int solver_verbose_no_precompute(wordlist_t &words,
+            priors_t &priors,
+            int answer,
+            float prior_sum){
+    // Obtain the Pid and computes the word region of each thread.
+    int pid;
+    MPI_Comm_rank(COMM, &pid);
+    int num_proc;
+    MPI_Comm_size(COMM, &num_proc);
+
+    int work_start, work_end, work_size;
+    task_split(static_cast<int>(words.size()), num_proc, pid, work_start, work_end);
+    work_size = work_end - work_start;
+
+
+    // Initialize Constants
+    int num_words = words.size();
+    int words_remaining = num_words;
+    int num_patterns = get_num_patterns();
+    word_t answer_word = words[answer];
+
+    // Initialize the prior vectors to be destructively modified by the solver
+    std::vector<float> candidate_priors(priors); // Statically sized
+    std::vector<float> answer_priors(priors);    // Dynamically sized
+    std::vector<int> indecies(num_words, 0);
+    for (int i = 0; i < num_words; i++){
+        indecies[i] = i;
+    } // Initialize an array of word indecies: Necessary for dynamic rebuilding
+
+
+    // Scratch work and entrypy storage. Private to each thread
+    std::vector<float> probability_scratch;
+    std::vector<float> entropys(work_size, 0.0f);
+
+    
+    // MPI Communication Buffers and data:
+    int guess; // The index (Relative to the word list) of each thread's guess word
+    float guess_score; // The score of each thread's guessed word
+    std::vector<int> all_guesses(num_proc);
+    std::vector<float> all_scores(num_proc); 
+    int selection_root;
+
+    coloring_t feedback;
+
+    // DEBUGGING CODE: Computes the initial uncertainty
+    float uncertainty = entropy_compute(priors, prior_sum);
+    if(pid == 0)
+        std::cout << "Initial Uncertainty: " << uncertainty << "\n";
+
+    bool random_select;
+
+    MPI_Barrier(COMM);
+
+    int iters = 0;
+
+    while(iters < MAXITERS){
+        /******************** Entropy Computation Phase **********************/
+        if(pid == 0)
+            std::cout<<"==========================================================\n";
+        random_select = false;
+        if(words_remaining <= 2){ 
+            // Random guess if there are no more than 2 valid words
+            guess = arg_max(candidate_priors);
+            guess_score = candidate_priors[guess];
+            random_select = true;
+            // DEBUG CODE:
+            int rank = 0;
+            while (rank < num_proc) {
+                if (pid == rank) {
+                    std::cout << "pid :" << pid << ": " << work_start << "," << work_end << "\n";
+                    std::cout << "Selected Word: " << std::flush;
+                    word_print(words[guess], 0, ' ');
+                    std::cout << "Score: " << guess_score << "\n" << std::flush;
+                }
+                rank ++;
+                MPI_Barrier(COMM);
+            }
+        }
+        else{ // More than 2 words: Compute the entropy for ALL words
+            auto compute_start = timestamp;
+            // Use thread local indexing
+            for(int lcl_idx = 0; lcl_idx < work_size; lcl_idx++){
+                // Zero out the probability scratch vector for new candidate
+                probability_scratch.assign(num_patterns, 0.0f);
+
+                // Computes the global word List index:
+                int candidate_idx = lcl_idx + work_start;
+                word_t candidate = words[candidate_idx];
+                // Compute the coloring probability scratch vector on the fly:
+                for(int j = 0; j < words_remaining; j++){
+                    int answer_idx = indecies[j];
+                    int weight = answer_priors[j];
+                    coloring_t tmp_feedback = word_cmp(candidate, words[answer_idx]);
+                    // Pool the prior weights into the probability scratch
+                    probability_scratch[static_cast<int>(tmp_feedback)] += weight;
+                }
+                // Normalize the pooled weights, then compute the entropy score
+                entropys[lcl_idx] = entropy_compute(probability_scratch, 
+                    prior_sum) + (candidate_priors[candidate_idx] / prior_sum);
+            }
+            auto compute_end = timestamp;
+            // Find the word that maximizes the expected entropy entropy.
+            guess = arg_max(entropys);
+            guess_score = entropys[guess];
+            guess += work_start; // Convert local index to global index.
+            auto select_end = timestamp;
+
+            // DEBUG CODE:
+            int rank = 0;
+            // while (rank < num_proc) {
+                if (pid == 0) {
+                    std::cout << "pid :" << pid << ": " << work_start << "," << work_end << "\n";
+                    std::cout << "Entropy Computation Time: " << TIME(compute_start, compute_end) << "\n";
+                    std::cout << "Word Selection Time:" << TIME(compute_end, select_end) << "\n";
+                    std::cout << "Selected Word: " << std::flush;
+                    word_print(words[guess], 0, ' ');
+                    std::cout << "Score: " << guess_score << "\n" << std::flush;
+                }
+                rank ++;
+                MPI_Barrier(COMM);
+            // }
+        }
+        if(random_select){
+            // If a word is selected randomly, then no need to communicate.
+            selection_root = get_pid_from_index(num_words, num_proc, guess);
+        }
+        else{
+            // Communicate Each thread's local result
+            MPI_Allgather((void *) &guess, sizeof(int), MPI_BYTE, 
+                (void*) &(all_guesses.front()), sizeof(int), MPI_BYTE, COMM);
+            MPI_Allgather((void *) &guess_score, sizeof(float), MPI_BYTE, 
+                (void*) &(all_scores.front()), sizeof(float), MPI_BYTE, COMM);
+            // Select Word for all threads. selection_root is the thread
+            // that contributed the optimal guess
+            selection_root = arg_max(all_scores);
+            guess = all_guesses[selection_root];
+        }
+
+        
+
+
+
+        /******************** Update Phase **********************/
+        MPI_Barrier(COMM); // All threads must agree upon which thread has the guessed word.
+        auto update_start = timestamp;
+        // Instead of serializing the update phase and communicate the result,
+        // Each thread could just do the same set of redundant operations
+
+        // Compute the feedback of the guessed word:
+        word_t guess_word = words[guess];
+        prior_sum = 0.0f;
+        feedback = word_cmp(guess_word, answer_word);
+        int write_idx = 0; // Used to push the remaining valid words to the front
+
+                // DEBUG CODE:
+        if(pid == 0){
+
+            std::cout << "Word:";
+            word_print(words[guess], feedback, ' ');
+            word_print(answer_word, feedback, ' ');
+            std::cout << "is selected. (" << selection_root << ") with ";
+            std::cout << "Score: " << all_scores[selection_root] << "\n" << std::flush;
+        }
+
+        /**
+         * For the candidate_priors: simply zero out the invalid words
+         * For the answer_priors: push the prior weights of valid words
+         *      to the front of the array
+         * For the index vector: Do similar operations as the answer priors list
+        */
+        for(int j = 0; j < words_remaining; j++){ 
+            // Only consider the words that are left:
+            int remain_idx = indecies[j];
+            coloring_t tmp_feedback = word_cmp(guess_word, words[remain_idx]);
+            if(tmp_feedback == feedback){ // Underlying word is consistent with the guess
+                prior_sum += answer_priors[j];
+                answer_priors[write_idx] = answer_priors[j];
+                indecies[write_idx] = indecies[j];
+                write_idx += 1;
+            }
+            else{// Word is eliminated
+                candidate_priors[indecies[j]] = 0.0f;
+            }
+        }
+        words_remaining = write_idx; // Update the number of words remaining
+
+
+        // Compute the new uncertainty measure after a guess
+        uncertainty = entropy_compute(answer_priors, prior_sum);
+        auto update_end = timestamp;
+
+        // DEBUG CODE:
+        int rank = 0;
+        // while (rank < num_proc) {
+            if (pid == 0) {
+                std::cout << "post update check: pid :" << pid << ": " << work_start << "," << work_end << "\n";
+                std::cout << "Update Phase total Time:" << TIME(update_start, update_end) << "\n"; 
+                std::cout << "Check if Feedback Agrees:";
+                word_print(words[guess], feedback);
+                std::cout << "Check: prior_sum = " << prior_sum << " num_remain = " << words_remaining << "Valid Words:\n"; 
+                for(int i = 0; i < words_remaining; i++){
+                    word_print(words[indecies[i]], 0, ' ');
+                }
+                std::cout << "\n==============================================\n" << std::flush;
+            }
+            rank ++;
+            MPI_Barrier(COMM);
+        // }
+        iters ++;
+
+        // All threads should escape the loop if the guess is correct.
+        if(is_correct_guess(feedback)) return iters;
+
+        // Barrier at the end of the iteration.
+        MPI_Barrier(COMM);
+    }
+    return iters;
+}
+
+
+/**
+ * Solver for MPI no precompute: Requires word list. 
+ * Computes the pattern on the fly and does not use the pattern matrix as the
+ * input. This implementation also implicitly incorporates rebuilding strategies
+ * 
+ * @param words - The list of words, required for this implementation
+ * @param priors - The prior weights of each word. 
+ * @param prior_sum - The sum of all prior weights, returned by the function
+ *                    that generates the vector of prior weights
+ * @param answer - The WORD INDEX of the correct word.
+ * @warning This function makes its own copy of prior vectors
+*/
+int solver_no_precompute(wordlist_t &words,
+            priors_t &priors,
+            int answer,
+            float prior_sum){
+    // Obtain the Pid and computes the word region of each thread.
+    int pid;
+    MPI_Comm_rank(COMM, &pid);
+    int num_proc;
+    MPI_Comm_size(COMM, &num_proc);
+
+    int work_start, work_end, work_size;
+    task_split(static_cast<int>(words.size()), num_proc, pid, work_start, work_end);
+    work_size = work_end - work_start;
+
+
+    // Initialize Constants
+    int num_words = words.size();
+    int words_remaining = num_words;
+    int num_patterns = get_num_patterns();
+    word_t answer_word = words[answer];
+
+    // Initialize the prior vectors to be destructively modified by the solver
+    std::vector<float> candidate_priors(priors); // Statically sized
+    std::vector<float> answer_priors(priors);    // Dynamically sized
+    std::vector<int> indecies(num_words, 0);
+    for (int i = 0; i < num_words; i++){
+        indecies[i] = i;
+    } // Initialize an array of word indecies: Necessary for dynamic rebuilding
+
+
+    // Scratch work and entrypy storage. Private to each thread
+    std::vector<float> probability_scratch;
+    std::vector<float> entropys(work_size, 0.0f);
+
+    
+    // MPI Communication Buffers and data:
+    int guess; // The index (Relative to the word list) of each thread's guess word
+    float guess_score; // The score of each thread's guessed word
+    std::vector<int> all_guesses(num_proc);
+    std::vector<float> all_scores(num_proc); 
+
+    coloring_t feedback;
+
+    MPI_Barrier(COMM);
+
+    int iters = 0;
+
+    while(iters < MAXITERS){
+        /******************** Entropy Computation Phase **********************/
+        if(words_remaining <= 2){ 
+            // Random guess if there are no more than 2 valid words
+            guess = arg_max(candidate_priors);
+            guess_score = candidate_priors[guess];
+        }
+        else{ // More than 2 words: Compute the entropy for ALL words
+            // Use thread local indexing
+            for(int lcl_idx = 0; lcl_idx < work_size; lcl_idx++){
+                // Zero out the probability scratch vector for new candidate
+                probability_scratch.assign(num_patterns, 0.0f);
+
+                // Computes the global word List index:
+                int candidate_idx = lcl_idx + work_start;
+                word_t candidate = words[candidate_idx];
+                // Compute the coloring probability scratch vector on the fly:
+                for(int j = 0; j < words_remaining; j++){
+                    int answer_idx = indecies[j];
+                    int weight = answer_priors[j];
+                    coloring_t tmp_feedback = word_cmp(candidate, words[answer_idx]);
+                    // Pool the prior weights into the probability scratch
+                    probability_scratch[static_cast<int>(tmp_feedback)] += weight;
+                }
+                // Normalize the pooled weights, then compute the entropy score
+                entropys[lcl_idx] = entropy_compute(probability_scratch, 
+                    prior_sum) + (candidate_priors[candidate_idx] / prior_sum);
+            }
+            // Find the word that maximizes the expected entropy entropy.
+            guess = arg_max(entropys);
+            guess_score = entropys[guess];
+            guess += work_start; // Convert local index to global index.
+
+        }
+
+        // Communicate Each thread's local result
+        MPI_Allgather((void *) &guess, sizeof(int), MPI_BYTE, 
+            (void*) &(all_guesses.front()), sizeof(int), MPI_BYTE, COMM);
+        MPI_Allgather((void *) &guess_score, sizeof(float), MPI_BYTE, 
+            (void*) &(all_scores.front()), sizeof(float), MPI_BYTE, COMM);
+        // Select Word for all threads.
+        guess = all_guesses[arg_max(all_scores)];
+
+        
+
+        /******************** Update Phase **********************/
+        MPI_Barrier(COMM); // All threads must agree upon which thread has the guessed word.
+        // Instead of serializing the update phase and communicate the result,
+        // Each thread could just do the same set of redundant operations
+
+        // Compute the feedback of the guessed word:
+        word_t guess_word = words[guess];
+        prior_sum = 0.0f;
+        feedback = word_cmp(guess_word, answer_word);
+        int write_idx = 0; // Used to push the remaining valid words to the front
+
+        /**
+         * For the candidate_priors: simply zero out the invalid words
+         * For the answer_priors: push the prior weights of valid words
+         *      to the front of the array
+         * For the index vector: Do similar operations as the answer priors list
+        */
+        for(int j = 0; j < words_remaining; j++){ 
+            // Only consider the words that are left:
+            int remain_idx = indecies[j];
+            coloring_t tmp_feedback = word_cmp(guess_word, words[remain_idx]);
+            if(tmp_feedback == feedback){ // Underlying word is consistent with the guess
+                prior_sum += answer_priors[j];
+                answer_priors[write_idx] = answer_priors[j];
+                indecies[write_idx] = indecies[j];
+                write_idx += 1;
+            }
+            else{// Word is eliminated
+                candidate_priors[indecies[j]] = 0.0f;
+            }
+        }
+        words_remaining = write_idx; // Update the number of words remaining
+
+        iters ++;
+
+        // All threads should escape the loop if the guess is correct.
+        if(is_correct_guess(feedback)) return iters;
+
+        // Barrier at the end of the iteration.
+        MPI_Barrier(COMM);
+    }
+    return iters;
+}
+
+
+/************************************************
+ * On The Fly solvers with Opener Precomputation
+************************************************/
+
+/**
+ * For on the fly solvers: Precompute the opener word once
+ * @param words The word list
+ * @param priors The prior list
+ * @param prior_sum: The sum of all priors weights
+ * @return the index of the opener word in the word list
+*/
+int opener_precompute(wordlist_t &words, priors_t &priors, float prior_sum){
+    // Obtain the Pid and computes the word region of each thread.
+    int pid;
+    MPI_Comm_rank(COMM, &pid);
+    int num_proc;
+    MPI_Comm_size(COMM, &num_proc);
+
+    int work_start, work_end, work_size;
+    task_split(static_cast<int>(words.size()), num_proc, pid, work_start, work_end);
+    work_size = work_end - work_start;
+
+    int num_words = words.size();
+    int num_patterns = get_num_patterns();
+
+    // Scratch work and entrypy storage. Private to each thread
+    std::vector<float> probability_scratch;
+    std::vector<float> entropys(work_size, 0.0f);
+
+    // Communication Buffers
+    std::vector<int> all_guesses(num_proc);
+    std::vector<float> all_scores(num_proc); 
+
+    // Use thread local indexing
+    for(int lcl_idx = 0; lcl_idx < work_size; lcl_idx++){
+        // Zero out the probability scratch vector for new candidate
+        probability_scratch.assign(num_patterns, 0.0f);
+        // Computes the global word List index:
+        int candidate_idx = lcl_idx + work_start;
+        word_t candidate = words[candidate_idx];
+        // Compute the coloring probability scratch vector on the fly:
+        for(int j = 0; j < num_words; j++){
+            coloring_t feedback = word_cmp(candidate, words[j]);
+            // Pool the prior weights into the probability scratch
+            probability_scratch[static_cast<int>(feedback)] += priors[j];
+        }
+        // Normalize the pooled weights, then compute the entropy score
+        entropys[lcl_idx] = entropy_compute(probability_scratch, 
+            prior_sum) + (priors[candidate_idx] / prior_sum);
+    }
+
+    // Find the word that maximizes the expected entropy entropy.
+    int guess = arg_max(entropys);
+    float guess_score = entropys[guess];
+    guess += work_start; // Global word index
+    // Communication phase: (Sync)
+    MPI_Allgather((void *) &guess, sizeof(int), MPI_BYTE, 
+        (void*) &(all_guesses.front()), sizeof(int), MPI_BYTE, COMM);
+    MPI_Allgather((void *) &guess_score, sizeof(float), MPI_BYTE, 
+        (void*) &(all_scores.front()), sizeof(float), MPI_BYTE, COMM);
+    // Return the index of the opener word maximizing the score
+    return all_guesses[arg_max(all_scores)];
+}
+
+/**
+ * Verbose Mode On The Fly Solver for MPI: Requires word list. 
+ * Computes the pattern on the fly and does not use the pattern matrix as the
+ * input. This implementation also implicitly incorporates rebuilding strategies
+ * The opener word shall be pre-computed
+ * 
+ * @param words - The list of words, required for this implementation
+ * @param priors - The prior weights of each word. 
+ * @param answer - The WORD INDEX of the correct word.
+ * @param opener - The WORD INDEX of the opener word
+ * @warning This function makes its own copy of prior vectors
+*/
+int solver_OTF_opener_verbose(wordlist_t &words,
+            priors_t &priors,
+            int answer,
+            int opener){
+    // Obtain the Pid and computes the word region of each thread.
+    int pid;
+    MPI_Comm_rank(COMM, &pid);
+    int num_proc;
+    MPI_Comm_size(COMM, &num_proc);
+
+    int work_start, work_end, work_size;
+    task_split(static_cast<int>(words.size()), num_proc, pid, work_start, work_end);
+    work_size = work_end - work_start;
+
+    auto init_start = timestamp;
+
+    // Initialize Constants
+    float prior_sum = 0.0f;
+    int num_words = words.size();
+    int num_patterns = get_num_patterns();
+    word_t answer_word = words[answer];
+    word_t opener_word = words[opener];
+
+    // Initialize the prior vectors to be destructively modified by the solver
+    std::vector<float> candidate_priors(num_words, 0.0f); // Statically sized
+    std::vector<float> answer_priors(num_words, 0.0f);    // Dynamically sized
+    std::vector<int> indecies(num_words, 0);
+
+    // Perform the first round of update according to the opener word:
+    // Performed by all threads as a means to initialize the candidate and 
+    // answer priors
+    coloring_t feedback = word_cmp(opener_word, answer_word);
+    int words_remaining = 0;
+    for(int j = 0; j < num_words; j++){ 
+        if(word_cmp(opener_word, words[j]) == feedback){ // Underlying word is consistent with the guess
+            prior_sum += priors[j];
+            candidate_priors[j] = priors[j];
+            answer_priors[words_remaining] = priors[j];
+            indecies[words_remaining] = j; // Keep track of the original indecies
+            words_remaining += 1;
+        }
+    }
+    // The following should be unchanged from the functions above
+
+
+    // Scratch work and entrypy storage. Private to each thread
+    std::vector<float> probability_scratch;
+    std::vector<float> entropys(work_size, 0.0f);
+
+    
+    // MPI Communication Buffers and data:
+    int guess; // The index (Relative to the word list) of each thread's guess word
+    float guess_score; // The score of each thread's guessed word
+    std::vector<int> all_guesses(num_proc);
+    std::vector<float> all_scores(num_proc); 
+    int selection_root;
+
+    // DEBUGGING CODE: Computes the initial uncertainty
+    float uncertainty = entropy_compute(priors, prior_sum);
+    if(pid == 0)
+        std::cout << "Initial Uncertainty: " << uncertainty << "\n";
+
+    auto init_end = timestamp;
+    if(pid == 0){
+        std::cout << "Init Time:" << TIME(init_start, init_end) << "\n"; 
+        std::cout << "prior_sum = " << prior_sum << " num_remain = " << words_remaining << "Valid Words:\n"; 
+        for(int i = 0; i < words_remaining; i++){
+            word_print(words[indecies[i]], 0, ' ');
+        }
+        std::cout << "\n" << std::flush;
+    }
+
+    bool random_select;
+
+    MPI_Barrier(COMM);
+
+    int iters = 1; // One round of game has already passed.
+
+    while(iters < MAXITERS){
+        /******************** Entropy Computation Phase **********************/
+        if(pid == 0)
+            std::cout<<"==========================================================\n";
+        random_select = false;
+        if(words_remaining <= 2){ 
+            // Random guess if there are no more than 2 valid words
+            guess = arg_max(candidate_priors);
+            guess_score = candidate_priors[guess];
+            random_select = true;
+            // DEBUG CODE:
+            int rank = 0;
+            while (rank < num_proc) {
+                if (pid == rank) {
+                    std::cout << "pid :" << pid << ": " << work_start << "," << work_end << "\n";
+                    std::cout << "Selected Word: " << std::flush;
+                    word_print(words[guess], 0, ' ');
+                    std::cout << "Score: " << guess_score << "\n" << std::flush;
+                }
+                rank ++;
+                MPI_Barrier(COMM);
+            }
+        }
+        else{ // More than 2 words: Compute the entropy for ALL words
+            auto compute_start = timestamp;
+            // Use thread local indexing
+            for(int lcl_idx = 0; lcl_idx < work_size; lcl_idx++){
+                // Zero out the probability scratch vector for new candidate
+                probability_scratch.assign(num_patterns, 0.0f);
+
+                // Computes the global word List index:
+                int candidate_idx = lcl_idx + work_start;
+                word_t candidate = words[candidate_idx];
+                // Compute the coloring probability scratch vector on the fly:
+                for(int j = 0; j < words_remaining; j++){
+                    int answer_idx = indecies[j];
+                    int weight = answer_priors[j];
+                    coloring_t tmp_feedback = word_cmp(candidate, words[answer_idx]);
+                    // Pool the prior weights into the probability scratch
+                    probability_scratch[static_cast<int>(tmp_feedback)] += weight;
+                }
+                // Normalize the pooled weights, then compute the entropy score
+                entropys[lcl_idx] = entropy_compute(probability_scratch, 
+                    prior_sum) + (candidate_priors[candidate_idx] / prior_sum);
+            }
+            auto compute_end = timestamp;
+            // Find the word that maximizes the expected entropy entropy.
+            guess = arg_max(entropys);
+            guess_score = entropys[guess];
+            guess += work_start; // Convert local index to global index.
+            auto select_end = timestamp;
+
+            // DEBUG CODE:
+            int rank = 0;
+            // while (rank < num_proc) {
+                if (pid == 0) {
+                    std::cout << "pid :" << pid << ": " << work_start << "," << work_end << "\n";
+                    std::cout << "Entropy Computation Time: " << TIME(compute_start, compute_end) << "\n";
+                    std::cout << "Word Selection Time:" << TIME(compute_end, select_end) << "\n";
+                    std::cout << "Selected Word: " << std::flush;
+                    word_print(words[guess], 0, ' ');
+                    std::cout << "Score: " << guess_score << "\n" << std::flush;
+                }
+                rank ++;
+                MPI_Barrier(COMM);
+            // }
+        }
+        if(random_select){
+            // If a word is selected randomly, then no need to communicate.
+            selection_root = get_pid_from_index(num_words, num_proc, guess);
+        }
+        else{
+            // Communicate Each thread's local result
+            MPI_Allgather((void *) &guess, sizeof(int), MPI_BYTE, 
+                (void*) &(all_guesses.front()), sizeof(int), MPI_BYTE, COMM);
+            MPI_Allgather((void *) &guess_score, sizeof(float), MPI_BYTE, 
+                (void*) &(all_scores.front()), sizeof(float), MPI_BYTE, COMM);
+            // Select Word for all threads. selection_root is the thread
+            // that contributed the optimal guess
+            selection_root = arg_max(all_scores);
+            guess = all_guesses[selection_root];
+        }
+
+        // DEBUG CODE:
+        if(pid == 0){
+            std::cout << "Word:";
+            word_print(words[guess], 0, ' ');
+            std::cout << "is selected. (" << selection_root << ") with ";
+            std::cout << "Score: " << all_scores[selection_root] << "\n" << std::flush;
+        }
+
+        /******************** Update Phase **********************/
+        MPI_Barrier(COMM); // All threads must agree upon which thread has the guessed word.
+        auto update_start = timestamp;
+        // Instead of serializing the update phase and communicate the result,
+        // Each thread could just do the same set of redundant operations
+
+        // Compute the feedback of the guessed word:
+        word_t guess_word = words[guess];
+        prior_sum = 0.0f;
+        feedback = word_cmp(guess_word, answer_word);
+        int write_idx = 0; // Used to push the remaining valid words to the front
+
+        /**
+         * For the candidate_priors: simply zero out the invalid words
+         * For the answer_priors: push the prior weights of valid words
+         *      to the front of the array
+         * For the index vector: Do similar operations as the answer priors list
+        */
+        for(int j = 0; j < words_remaining; j++){ 
+            // Only consider the words that are left:
+            int remain_idx = indecies[j];
+            coloring_t tmp_feedback = word_cmp(guess_word, words[remain_idx]);
+            if(tmp_feedback == feedback){ // Underlying word is consistent with the guess
+                prior_sum += answer_priors[j];
+                answer_priors[write_idx] = answer_priors[j];
+                indecies[write_idx] = indecies[j];
+                write_idx += 1;
+            }
+            else{// Word is eliminated
+                candidate_priors[indecies[j]] = 0.0f;
+            }
+        }
+        words_remaining = write_idx; // Update the number of words remaining
+
+
+        // Compute the new uncertainty measure after a guess
+        uncertainty = entropy_compute(answer_priors, prior_sum);
+        auto update_end = timestamp;
+
+        // DEBUG CODE:
+        int rank = 0;
+        // while (rank < num_proc) {
+            if (pid == 0) {
+                std::cout << "post update check: pid :" << pid << ": " << work_start << "," << work_end << "\n";
+                std::cout << "Update Phase total Time:" << TIME(update_start, update_end) << "\n"; 
+                std::cout << "Check if Feedback Agrees:";
+                word_print(words[guess], feedback);
+                std::cout << "Check: prior_sum = " << prior_sum << " num_remain = " << words_remaining << "Valid Words:\n"; 
+                for(int i = 0; i < words_remaining; i++){
+                    word_print(words[indecies[i]], 0, ' ');
+                }
+                std::cout << "\n==============================================\n" << std::flush;
+            }
+            rank ++;
+            MPI_Barrier(COMM);
+        // }
+
+        iters ++;
+        // All threads should escape the loop if the guess is correct.
+        if(is_correct_guess(feedback)) return iters;
+
+        // Barrier at the end of the iteration.
+        MPI_Barrier(COMM);
+    }
+    return iters;
+}
+
+/**
+ * On The Fly Solver for MPI: Requires word list. 
+ * Computes the pattern on the fly and does not use the pattern matrix as the
+ * input. This implementation also implicitly incorporates rebuilding strategies
+ * The opener word shall be pre-computed
+ * 
+ * @param words - The list of words, required for this implementation
+ * @param priors - The prior weights of each word. 
+ * @param answer - The WORD INDEX of the correct word.
+ * @param opener - The WORD INDEX of the opener word
+ * @warning This function makes its own copy of prior vectors
+*/
+int solver_OTF_opener(wordlist_t &words,
+            priors_t &priors,
+            int answer,
+            int opener){
+    // Obtain the Pid and computes the word region of each thread.
+    int pid;
+    MPI_Comm_rank(COMM, &pid);
+    int num_proc;
+    MPI_Comm_size(COMM, &num_proc);
+
+    int work_start, work_end, work_size;
+    task_split(static_cast<int>(words.size()), num_proc, pid, work_start, work_end);
+    work_size = work_end - work_start;
+
+    // Initialize Constants
+    float prior_sum = 0.0f;
+    int num_words = words.size();
+    int num_patterns = get_num_patterns();
+    word_t answer_word = words[answer];
+    word_t opener_word = words[opener];
+
+    // Initialize the prior vectors to be destructively modified by the solver
+    std::vector<float> candidate_priors(num_words, 0.0f); // Statically sized
+    std::vector<float> answer_priors(num_words, 0.0f);    // Dynamically sized
+    std::vector<int> indecies(num_words, 0);
+
+    // Perform the first round of update according to the opener word:
+    // Performed by all threads as a means to initialize the candidate and 
+    // answer priors
+    coloring_t feedback = word_cmp(opener_word, answer_word);
+    int words_remaining = 0;
+    for(int j = 0; j < num_words; j++){ 
+        if(word_cmp(opener_word, words[j]) == feedback){ // Underlying word is consistent with the guess
+            prior_sum += priors[j];
+            candidate_priors[j] = priors[j];
+            answer_priors[words_remaining] = priors[j];
+            indecies[words_remaining] = j; // Keep track of the original indecies
+            words_remaining += 1;
+        }
+    }
+    // The following should be unchanged from the functions above
+
+
+    // Scratch work and entrypy storage. Private to each thread
+    std::vector<float> probability_scratch;
+    std::vector<float> entropys(work_size, 0.0f);
+
+    
+    // MPI Communication Buffers and data:
+    int guess; // The index (Relative to the word list) of each thread's guess word
+    float guess_score; // The score of each thread's guessed word
+    std::vector<int> all_guesses(num_proc);
+    std::vector<float> all_scores(num_proc); 
+
+
+    MPI_Barrier(COMM);
+
+    int iters = 1; // One round of game has already passed.
+
+    while(iters < MAXITERS){
+        /******************** Entropy Computation Phase **********************/
+        if(words_remaining <= 2){ 
+            // Random guess if there are no more than 2 valid words
+            guess = arg_max(candidate_priors);
+            guess_score = candidate_priors[guess];
+        }
+        else{ // More than 2 words: Compute the entropy for ALL words
+            // Use thread local indexing
+            for(int lcl_idx = 0; lcl_idx < work_size; lcl_idx++){
+                // Zero out the probability scratch vector for new candidate
+                probability_scratch.assign(num_patterns, 0.0f);
+
+                // Computes the global word List index:
+                int candidate_idx = lcl_idx + work_start;
+                word_t candidate = words[candidate_idx];
+                // Compute the coloring probability scratch vector on the fly:
+                for(int j = 0; j < words_remaining; j++){
+                    int answer_idx = indecies[j];
+                    int weight = answer_priors[j];
+                    coloring_t tmp_feedback = word_cmp(candidate, words[answer_idx]);
+                    // Pool the prior weights into the probability scratch
+                    probability_scratch[static_cast<int>(tmp_feedback)] += weight;
+                }
+                // Normalize the pooled weights, then compute the entropy score
+                entropys[lcl_idx] = entropy_compute(probability_scratch, 
+                    prior_sum) + (candidate_priors[candidate_idx] / prior_sum);
+            }
+            // Find the word that maximizes the expected entropy entropy.
+            guess = arg_max(entropys);
+            guess_score = entropys[guess];
+            guess += work_start; // Convert local index to global index.
+        }
+
+        // Communicate Each thread's local result
+        MPI_Allgather((void *) &guess, sizeof(int), MPI_BYTE, 
+            (void*) &(all_guesses.front()), sizeof(int), MPI_BYTE, COMM);
+        MPI_Allgather((void *) &guess_score, sizeof(float), MPI_BYTE, 
+            (void*) &(all_scores.front()), sizeof(float), MPI_BYTE, COMM);
+        // Select Word for all threads. selection_root is the thread
+
+        guess = all_guesses[arg_max(all_scores)];
+
+
+        /******************** Update Phase **********************/
+        MPI_Barrier(COMM); // All threads must agree upon which thread has the guessed word.
+        // Instead of serializing the update phase and communicate the result,
+        // Each thread could just do the same set of redundant operations
+
+        // Compute the feedback of the guessed word:
+        word_t guess_word = words[guess];
+        prior_sum = 0.0f;
+        feedback = word_cmp(guess_word, answer_word);
+        int write_idx = 0; // Used to push the remaining valid words to the front
+
+        /**
+         * For the candidate_priors: simply zero out the invalid words
+         * For the answer_priors: push the prior weights of valid words
+         *      to the front of the array
+         * For the index vector: Do similar operations as the answer priors list
+        */
+        for(int j = 0; j < words_remaining; j++){ 
+            // Only consider the words that are left:
+            int remain_idx = indecies[j];
+            coloring_t tmp_feedback = word_cmp(guess_word, words[remain_idx]);
+            if(tmp_feedback == feedback){ // Underlying word is consistent with the guess
+                prior_sum += answer_priors[j];
+                answer_priors[write_idx] = answer_priors[j];
+                indecies[write_idx] = indecies[j];
+                write_idx += 1;
+            }
+            else{// Word is eliminated
+                candidate_priors[indecies[j]] = 0.0f;
+            }
+        }
+        words_remaining = write_idx; // Update the number of words remaining
+
+        iters ++;
+        // All threads should escape the loop if the guess is correct.
+        if(is_correct_guess(feedback)) return iters;
+
+        // Barrier at the end of the iteration.
+        MPI_Barrier(COMM);
+    }
+    return iters;
+}
+
+
+
 int main(int argc, char **argv) {
     auto init_start = timestamp;
     int pid;
@@ -469,8 +1327,9 @@ int main(int argc, char **argv) {
     bool verbose = false;
     bool rand_prior = false;
     int opt;
+    char mode = 'D';
     // Read program parameters
-    while ((opt = getopt(argc, argv, "f:p:t:m:rv")) != -1) {
+    while ((opt = getopt(argc, argv, "M:f:p:t:m:rv")) != -1) {
         switch (opt) {
         case 'f':
             text_filename = optarg;
@@ -486,6 +1345,9 @@ int main(int argc, char **argv) {
             break;
         case 'r':
             rand_prior = true;
+            break;
+        case 'M':
+            mode = *optarg;
             break;
         case 'v':
             verbose = true;
@@ -602,76 +1464,135 @@ int main(int argc, char **argv) {
     if(pid == 0)
         std::cout << "Initialization: " << TIME(init_start, init_end) << "\n";
 
-    // Test initialization
-    // int rank = 0;
-    //     while (rank < num_proc) {
-    //     if (pid == rank) {
-    //         printf("pid: %d, [Work Region]: %d, %d\n",pid, work_start, work_end);
-    //         printf("Received [%lu] words:\n", words.size());
-    //         for(auto word: words){
-    //             word_print(word, 0U, ',');
-    //         }
-    //         printf("\nReceived [%lu] priors:\n", priors.size());
-    //         for(float k: priors){
-    //             printf("%f, ", k);
-    //         }
-    //         printf("\nReceived [%lu] testing examples:\n", test_set.size());
-    //         for(int idx : test_set){
-    //             printf("%d, ", idx);
-    //         }
-    //         printf("\n==============================================\n");
-    //         fflush (stdout);
-    //     }
-    //     rank ++;
-    //     MPI_Barrier(COMM);
-    // }
 
-    auto precompute_start = timestamp;
-    // Precompute the coloring matrix
-    MPI_compute_patterns(pattern_matrix, words, work_start, work_end);
-    auto precompute_end = timestamp;
-
-    if(pid == 0)
-        std::cout << "Pre-processing: " << TIME(precompute_start, precompute_end) << "\n";
-
-    // Synchronize before stepping into the main solver loop.
     MPI_Barrier(COMM);
 
-
-    // Benchmark all words in the test set.
-    double time_total;
     int answer_index;
-    // Requires a deep copy for the priors in each benchmark
-    priors_t prior_compute(priors.size());
-
-    auto answer_start = timestamp;
     int rounds;
-    for (int i = 0; i < static_cast<int>(test_set.size()); i ++){
-        std::copy(priors.begin(), priors.end(), prior_compute.begin());
-        answer_index = test_set[i];
+    double rounds_total = 0.0;
+    double time_total;
+    if(mode == 'D'){ // Default MPI Mode
+        auto precompute_start = timestamp;
+        // Precompute the coloring matrix
+        MPI_compute_patterns(pattern_matrix, words, work_start, work_end);
+        auto precompute_end = timestamp;
+
+        if(pid == 0)
+            std::cout << "Pre-processing: " << TIME(precompute_start, precompute_end) << "\n";
+
+        // Synchronize before stepping into the main solver loop.
+        MPI_Barrier(COMM);
+
+
+        // Benchmark all words in the test set.
+        // Requires a deep copy for the priors in each benchmark
+        priors_t prior_compute(priors.size());
+
+        auto answer_start = timestamp;
+        for (int i = 0; i < static_cast<int>(test_set.size()); i ++){
+            std::copy(priors.begin(), priors.end(), prior_compute.begin());
+            answer_index = test_set[i];
+            if(pid == 0){
+                std::cout << "Benchmarking word: ";
+                word_print(words[answer_index], 0, ' ');
+            }
+            if(verbose){
+                rounds = solver_verbose(words, prior_compute, pattern_matrix, answer_index, priors_sum, work_start, work_end);
+            }
+            else{
+                rounds = solver(prior_compute, pattern_matrix, answer_index, priors_sum, work_start, work_end);
+            }
+            MPI_Barrier(COMM); // A conservative synchronization after each benchmark
+            if(pid == 0){
+                std::cout << "<" << rounds << ">\n" << std::flush;
+                rounds_total += static_cast<double>(rounds);
+            }
+        }
+
+        auto answer_end = timestamp;
+        time_total = TIME(answer_start, answer_end);
         if(pid == 0){
-            std::cout << "Benchmarking word: ";
-            word_print(words[answer_index], 0, ' ');
+            double average_time = time_total / static_cast<double>(test_set.size());
+            std::cout << "Average time taken: " << average_time << " sec per word\n";
+            std::cout << "Average rounds per game: " << (rounds_total / static_cast<double>(test_set.size())) << "\n";
         }
-        if(verbose){
-            rounds = solver_verbose(words, prior_compute, pattern_matrix, answer_index, priors_sum, work_start, work_end);
+    }
+    else if(mode == 'O'){ // On the fly computation without pre-processing
+        auto answer_start = timestamp;    
+        for (int i = 0; i < static_cast<int>(test_set.size()); i ++){
+            answer_index = test_set[i];
+            if(pid == 0){
+                std::cout << "(OTF) Benchmarking word: ";
+                word_print(words[answer_index], 0, ' ');
+            }
+            if(verbose)
+                rounds = solver_verbose_no_precompute(words, priors, answer_index, priors_sum);
+            else
+                rounds = solver_no_precompute(words, priors, answer_index, priors_sum);
+            MPI_Barrier(COMM); // A conservative synchronization after each benchmark
+            if(pid == 0){
+                std::cout << "<" << rounds << ">\n" << std::flush;
+                rounds_total += static_cast<double>(rounds);
+            }
         }
-        else{
-            rounds = solver(prior_compute, pattern_matrix, answer_index, priors_sum, work_start, work_end);
-        }
-        MPI_Barrier(COMM); // A conservative synchronization after each benchmark
+
+
+        auto answer_end = timestamp;
+        time_total = TIME(answer_start, answer_end);
+
         if(pid == 0){
-            std::cout << "<" << rounds << ">\n" << std::flush;
+            double average_time = time_total / static_cast<double>(test_set.size());
+            std::cout << "Average time taken: " << average_time << " sec per word\n";
+            std::cout << "Average rounds per game: " << (rounds_total / static_cast<double>(test_set.size())) << "\n";
+        }
+
+    }
+    else if(mode == 'P'){
+        auto precompute_start = timestamp;
+        int opener = opener_precompute(words, priors, priors_sum);
+        auto precompute_end = timestamp;
+
+        if(pid == 0){
+            std::cout << "Opener Selection: " << TIME(precompute_start, precompute_end) << "\n";
+            std::cout << "Opener Word: ";
+            word_print(words[opener], get_num_patterns() - 1);
+        }
+        auto answer_start = timestamp;    
+
+        // Test Solver no Precompute
+        for (int i = 0; i < static_cast<int>(test_set.size()); i ++){
+            answer_index = test_set[i];
+            if(pid == 0){
+                std::cout << "(OTF) Benchmarking word: ";
+                word_print(words[answer_index], 0, ' ');
+            }
+            if(verbose)
+                rounds = solver_OTF_opener_verbose(words, priors, answer_index, opener);
+            else
+                rounds = solver_OTF_opener(words, priors, answer_index, opener);
+            MPI_Barrier(COMM); // A conservative synchronization after each benchmark
+            if(pid == 0){
+                std::cout << "<" << rounds << ">\n" << std::flush;
+                rounds_total += static_cast<double>(rounds);
+            }
+        }
+        auto answer_end = timestamp;
+        time_total = TIME(answer_start, answer_end);
+
+        if(pid == 0){
+            double average_time = time_total / static_cast<double>(test_set.size());
+            std::cout << "Average time taken: " << average_time << " sec per word\n";
+            std::cout << "Average rounds per game: " << (rounds_total / static_cast<double>(test_set.size())) << "\n";
+        }
+    }
+    else{
+        if(pid == 0){
+            std::cout << "Invalid Mode, aborting program" << "\n" << std::flush;
         }
     }
 
-    auto answer_end = timestamp;
-    time_total = TIME(answer_start, answer_end);
-    if(pid == 0){
-        double average_time = time_total / static_cast<double>(test_set.size());
-        std::cout << "Average time taken: " << average_time << " sec per word\n";
-    }
-
+    
+    
 
 
     MPI_Finalize();

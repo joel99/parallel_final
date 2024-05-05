@@ -1,5 +1,4 @@
-CXX = g++-13
-# CXX = g++
+CXX = g++
 CXXFLAGS = -std=c++17 -Wall -O3 -fopenmp
 
 # List of source files
