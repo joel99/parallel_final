@@ -22,7 +22,7 @@
 
 void usage(char *exec_name){
     std::cout << "Usage:\n" << exec_name << "-i <input dimension> -o <output dimension> -n <thread count> -m <mode> [-l <number of locks>]\n";
-    std::cout << "-m: 'L': lock based implementation, 'R': reduction based implementation\n";
+    std::cout << "-m: 'L': lock based implementation, 'R': reduction based implementation, 'M': OMP native, 'S': Serial\n";
     return;
 }
 
@@ -61,7 +61,7 @@ void scatter_reduce(std::vector<int> &index, std::vector<double> &in,
 }
 
 /**
- * A simple lock based scatter reduce without any data preprocessing
+ * A simple lock based scatter reduce without any data preprocessing. Assumes even division of locks into output slots.
  * @param locks a vector of initialized omp locks
 */
 void lock_scatter_reduce(std::vector<double> &data_in,
@@ -71,53 +71,95 @@ void lock_scatter_reduce(std::vector<double> &data_in,
     // Compute the span of each lock
     int n = static_cast<int>(data_in.size());
     long lock_span = ceil_xdivy(data_out.size(), locks.size());
-    #pragma omp parallel for schedule(dynamic, TASKSIZE) shared(locks)
+    #pragma omp parallel for shared(locks)
+    // #pragma omp parallel for schedule(dynamic, TASKSIZE) shared(locks) # Dynamic unneeded for fixed benchmark
         for(int i = 0; i < n; i++){
             int idx = data_index[i];
             int lock_idx = idx/lock_span;
             omp_set_lock(&locks[lock_idx]);
             data_out[idx] += data_in[i];
             omp_unset_lock(&locks[lock_idx]);
-            // Needs to release lock immediately due to data access indirections
+            // Needs to release lock immediately due to data access indirections (trying not to release is miserably slow)
         }
+
     return;
 }
 
 /**
+ * Each thread writes to a pre-allocated span of the output, but scans full input.
+ * Assumes write-bound, not read bound; and gives a sense of the burden of big input low output scenarios.
+ * @param locks a vector of initialized omp locks
+*/
+void lock_free_scatter_reduce(std::vector<double> &data_in,
+                         std::vector<int> &data_index,
+                         std::vector<double> &data_out){
+    // Compute local span
+    int n = static_cast<int>(data_in.size());
+    int write_span = ceil_xdivy(data_out.size(), omp_get_max_threads());
+    #pragma omp parallel
+    {
+        int idx;
+        int write_min = write_span * omp_get_thread_num();
+        int write_max = std::min(write_min + write_span, static_cast<int>(data_out.size()));
+
+        for(int i = 0; i < n; i++){
+            idx = data_index[i];
+            if (idx >= write_min && idx < write_max){
+                data_out[idx] += data_in[i];
+            }
+        }
+    }
+}
+
+
+/**
  * A reduction based scatter reduce
  * @param scratch - a  <num_proc> * <data_out.size()> temporary matrix for thread
- *                  local aggregation
+ *                  local aggregation (better than local allocation)
 */
 void reduction_scatter_reduce(std::vector<double> &data_in,
                               std::vector<int> &data_index,
                               std::vector<double> &data_out,
                               std::vector<std::vector<double>> &scratch){
     int n = static_cast<int>(data_in.size());
-    int n_proc = static_cast<int>(scratch.size());
+    int m = static_cast<int>(data_out.size());
+    // Manual
     #pragma omp parallel // Local Aggregation Step
     {
         int thread_id = omp_get_thread_num();
         int idx;
-        #pragma omp for schedule(dynamic, TASKSIZE)
+        #pragma omp for // Dynamic overhead is terrible here
+        // #pragma omp for schedule(dynamic, TASKSIZE)
             for(int i = 0; i < n; i++){
                 idx = data_index[i];
                 scratch[thread_id][idx] += data_in[i];
             }
-    }
-    // Across Thread Accumulation Phase. SIMD is not very useful here...
-    int m = static_cast<int>(data_out.size());
-    #pragma omp parallel for schedule(dynamic)
-        for(int i = 0; i < m; i += SIMDWIDTH){
-            // #pragma omp simd
-            for(int idx = 0; idx < SIMDWIDTH; idx++){
-                for(int t = 0; t < n_proc; t ++)
-                data_out[idx + i] += scratch[t][idx + i];
+            #pragma omp critical
+            {
+                for(int i = 0; i < m; i++){
+                    data_out[i] += scratch[thread_id][i];
+                }
             }
-        }
+    }
 }
 
+void reduction_scatter_reduce_omp(std::vector<double> &data_in,
+                              std::vector<int> &data_index,
+                              std::vector<double> &data_out){
+    int n = static_cast<int>(data_in.size());
+    int m = static_cast<int>(data_out.size());
 
-
+    double* data_out_ptr = data_out.data();
+    #pragma omp parallel
+    {
+        int idx;
+        #pragma omp for reduction(+:data_out_ptr[:m])
+        for(int i = 0; i < n; i++){
+            idx = data_index[i];
+            data_out_ptr[idx] += data_in[i];
+        }
+    }
+}
 
 
 
@@ -131,9 +173,10 @@ int main(int argc, char **argv) {
     long output_dim = 0L;
     long num_locks = 0L;
     char mode = '\0';
+    unsigned int seed = 0; // Seed for random number generator
     int opt;
     // Read program parameters
-    while ((opt = getopt(argc, argv, "i:o:n:m:l:")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:n:m:l:s:")) != -1) {
         switch (opt) {
         case 'i':
             input_dim = atol(optarg);
@@ -149,6 +192,10 @@ int main(int argc, char **argv) {
             break;
         case 'l':
             num_locks = atol(optarg);
+            break;
+        case 's': // Handle seed parameter
+            seed = static_cast<unsigned int>(atoi(optarg));
+            srand(seed); // Seed the random number generator
             break;
         default:
             usage(argv[0]);
@@ -180,41 +227,42 @@ int main(int argc, char **argv) {
     omp_set_num_threads(num_threads);
     std::vector<std::vector<double>> scratch(num_threads, std::vector<double>(output_dim, 0.0f));
     std::vector<omp_lock_t>locks(num_locks);
-    for(auto l:locks){
-        omp_init_lock(&l);
+    // for(auto l:locks){
+    //     omp_init_lock(&l);
+    // }
+    // Apparently auto is illegitimate for initializing
+    for(int i = 0; i < num_locks; i++){
+        omp_init_lock(&locks[i]);
     }
     std::vector<double> serial_out(output_dim, 0.0f);
     std::vector<double> parallel_out(output_dim, 0.0f);
 
-    auto serial_start = timestamp;
-
-    // Test Serial Implementation
-    scatter_reduce(data_index, data_in, serial_out);
-
-    auto serial_end = timestamp;
-
-    auto parallel_start = timestamp;
+    auto start = timestamp;
 
     // Test Parallel Implementation
+    if (mode == 'S') {
+        scatter_reduce(data_index, data_in, serial_out);
+    }
     if(mode == 'L'){ // lock
         lock_scatter_reduce(data_in, data_index, parallel_out, locks);
     }
     if(mode == 'R'){ // Reduction Based Scatter Reduce
         reduction_scatter_reduce(data_in, data_index, parallel_out, scratch);
     }
+    if (mode == 'F') {
+        lock_free_scatter_reduce(data_in, data_index, parallel_out);
+    }
+    if (mode == 'M') {
+        reduction_scatter_reduce_omp(data_in, data_index, parallel_out);
+    }
 
-    auto parallel_end = timestamp;
+    auto end = timestamp;
 
     for(auto l:locks){
         omp_destroy_lock(&l);
     }
-    std::cout << "serial computation time:   " << TIME(serial_start, serial_end) << "\n";
-    std::cout << "parallel computation time: " << TIME(parallel_start, parallel_end) << "\n";
-    std::cout << "Paralle Speedup:" << TIME(serial_start, serial_end) / TIME(parallel_start, parallel_end) << "\n";
-
-    for(long i = 0; i < output_dim; i++){
-        if(!is_zero(serial_out[i] -parallel_out[i])){
-            printf("Parallel Solution Mismatch at [%d]: Expected %f, Actual: %f\n", i, serial_out[i], parallel_out[i]);
-        }
-    }
+    // Use std::fixed and std::setprecision to control the output format
+    std::cout << std::fixed << std::setprecision(10); // Set the precision to 10 decimal places
+    std::cout << "computation time:   " << TIME(start, end) << "\n";
+    return 0;
 }
