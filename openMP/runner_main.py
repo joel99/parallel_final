@@ -35,12 +35,11 @@ exp_params = []
 for param in specific_params:
     for n in thread_range:
         for legal_file in ['allowed_words.txt']:
+            # for test_file in ['subset_1.txt']:
             for test_file in ['subset_100.txt']:
-            # for test_file in ['subset_100.txt']:
                 combo = param.copy()  # Start with the specific settings
                 combo.update({'-n': n, '-t': test_file, '-f': legal_file})  # Add common settings
                 exp_params.append(combo)
-
 executable_path = './out'
 output_csv = 'benchmark_results_main.csv'
 
@@ -49,7 +48,8 @@ def run_benchmark(params):
     command = [executable_path]
     for key, value in params.items():
         command.append(key)
-        command.append(str(value))
+        if bool(value):
+            command.append(str(value))
     result = subprocess.run(command, capture_output=True, text=True)
     return result.stdout
 
@@ -77,17 +77,18 @@ def parse_output(output):
 # Write to CSV
 all_metrics = []
 for params in (pbar := tqdm(exp_params)):
+    print(params)
     pbar.set_postfix_str(params)
     output = run_benchmark(params)
-    metrics = parse_output(output)
-    for k in metrics:
-        k.update({
-            'mode': params['-x'],
-            'rebuild': '-b' in params,
-            'threads': params['-n'],
-            'capacity': params.get('-c', 0)    
-        })
-    all_metrics.extend(metrics)
-pd.DataFrame(all_metrics).to_csv(output_csv, index=False)
+    # metrics = parse_output(output)
+    # for k in metrics:
+    #     k.update({
+    #         'mode': params['-x'],
+    #         'rebuild': '-b' in params,
+    #         'threads': params['-n'],
+    #         'capacity': params.get('-c', 0)    
+    #     })
+    # all_metrics.extend(metrics)
+# pd.DataFrame(all_metrics).to_csv(output_csv, index=False)
 
 print("Benchmarking completed. Results saved to", output_csv)
