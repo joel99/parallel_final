@@ -9,7 +9,7 @@
 #include <cstring>
 #include <chrono>
 #include <unistd.h>
-#include <list>
+
 #include <omp.h>
 
 #define MAXITERS 10
@@ -21,12 +21,14 @@ int wordlen = MAXLEN;
 #define timestamp std::chrono::steady_clock::now() 
 #define TIME(start, end) std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count()
 
+unsigned long ceil_xdivy(unsigned long X, unsigned long Y){
+    return (X + (Y - 1)) / Y;
+}
 
 void usage(char *exec_name){
-    std::cout << "Usage:\n" << exec_name << " -f <word list> -n <thread count> [-p <prior weights> -t <test list> -m <maximum word length> -x <parallel mode> -r -v] \n";
+    std::cout << "Usage:\n" << exec_name << " -f <word list> -n <thread count> [-p <prior weights> -t <test list> -m <maximum word length> -r -v] \n";
     std::cout << "-v: verbose mode\n-r: use randomized priors";
     std::cout << "-m: specifies the maximum word length. Must be in between 1 and 8 (default)";
-    std::cout << "-x: specifies the parallelization strategy. 0 for guess parallel, 1 for candidate parallel";
     std::cout << "The test list must contain words in the word list\n";
     return;
 }
@@ -79,10 +81,6 @@ void compute_patterns(std::vector<std::vector<coloring_t>> &pattern_matrix,
 int_fast64_t solver_verbose(wordlist_t &words,
             priors_t &priors,
             std::vector<std::vector<coloring_t>> &pattern_matrix,
-            std::vector<index_t> &src_idx,
-            std::vector<index_t> &src_idx_scratch,
-            priors_t &priors_scratch,
-            std::vector<std::vector<coloring_t>> &patterns_scratch,
             int &answer,
             float prior_sum,
             char mode,
@@ -109,31 +107,13 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
     int iters = 0;
 
-    // For the first round, just use original data pointers (don't copy, huge overhead!)
-    std::vector<index_t>* src_idx_ref = &src_idx;  
-    priors_t* priors_ref = &priors; 
-    std::vector<std::vector<coloring_t>>* patterns_ref = &pattern_matrix; 
-    if (rebuild) { // Resize
-        src_idx_scratch.resize(num_words);
-        priors_scratch.resize(num_words);
-        patterns_scratch.resize(num_words);
-        for (int i = 0; i < num_words; i++){
-            patterns_scratch[i].resize(pattern_matrix[i].size());
-        }
-    }
-
-    auto loop_start = timestamp;
     while(iters < MAXITERS){
         /******************** Entropy Computation Phase **********************/
         std::cout<<"==========================================================\n";
         random_select = false;
         if(words_remaining <= 2){ 
             // Random guess if there are no more than 2 valid words
-            if (!rebuild) {
-                guess = arg_max(priors);
-            } else {
-                guess = (*src_idx_ref)[0];
-            }
+            guess = arg_max(priors);
             random_select = true;
         }
         else{ // More than 2 words: Compute the entropy for ALL words
@@ -252,51 +232,20 @@ int_fast64_t solver_verbose(wordlist_t &words,
         
         // Check for guess feed back.
         feedback = pattern_matrix[guess][answer];
-
         /******************** Update Phase **********************/
         auto update_start = timestamp;
-        if (!rebuild) {
-            words_remaining = 0;
-            prior_sum = 0.0f;
-            for(int i = 0; i < num_words; i++){
-                if(is_zero(priors[i])) continue; // prior == 0 for invalid
-                if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
-                else{
-                    words_remaining += 1;
-                    prior_sum += priors[i];
-                }
+        words_remaining = 0;
+        prior_sum = 0.0f;
+        for(int i = 0; i < num_words; i++){
+            if(is_zero(priors[i])) continue; // prior == 0 for invalid
+            if(pattern_matrix[guess][i] != feedback) priors[i] = 0.0f;
+            else{
+                words_remaining += 1;
+                prior_sum += priors[i];
             }
-            // Compute the new uncertainty measure after a guess
-            uncertainty = entropy_compute(priors, prior_sum);
-        } else {
-            // guess and entropy are in original space, others are reduced
-            prior_sum = 0.0f;
-            int _write = 0;
-            for (int _read = 0; _read < words_remaining; _read++){
-                if ((*patterns_ref)[guess][_read] == feedback) {
-                    int prior_read = (*priors_ref)[_read];
-                    priors_scratch[_write] = prior_read;
-                    prior_sum += prior_read;
-                    src_idx_scratch[_write] = (*src_idx_ref)[_read];
-                    for (int k = 0; k < num_words; k++){
-                        patterns_scratch[k][_write] = (*patterns_ref)[k][_read];
-                    }
-                    _write++;
-                }
-            }
-            words_remaining = _write;
-            src_idx_scratch.resize(words_remaining);
-            priors_scratch.resize(words_remaining);
-            for (int i = 0; i < num_words; i++){
-                patterns_scratch[i].resize(words_remaining);
-            }
-            src_idx_ref = &src_idx_scratch;
-            priors_ref = &priors_scratch;
-            patterns_ref = &patterns_scratch;
-
-            uncertainty = entropy_compute(priors_scratch, prior_sum);
         }
-
+        // Compute the new uncertainty measure after a guess
+        uncertainty = entropy_compute(priors, prior_sum);
 
         auto update_end = timestamp;
         std::cout << "Update Phase total Time:" << TIME(update_start, update_end) << "\n"; 
@@ -308,28 +257,14 @@ int_fast64_t solver_verbose(wordlist_t &words,
 
         std::cout << "Remaining Uncertainty: " << uncertainty << "\n";
         std::cout << "Remaining Words (" << words_remaining <<"):\n";
-        if (!rebuild) {
-            for(int i = 0; i < num_words; i++){
-                if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
-            }
-        } else {
-            for(int i = 0; i < words_remaining; i++){
-                word_print(words[(*src_idx_ref)[i]], 0, ' ');
-            }
+        for(int i = 0; i < num_words; i++){
+            if(!is_zero(priors[i])) word_print(words[i], 0, ' ');
         }
         std::cout << "\n";
 
         iters ++;
-        if(is_correct_guess(feedback)) {
-            auto in_end = timestamp;
-            std::cout << "Loop Time: " << TIME(loop_start, in_end) << "\n";
-            std::cout << "Total Time: " << TIME(in_start, in_end) << "\n";
-            return iters;
-        }
+        if(is_correct_guess(feedback)) return iters;
     }
-    auto in_end = timestamp;
-    std::cout << "Loop Time: " << TIME(loop_start, in_end) << "\n";
-    std::cout << "Total Time: " << TIME(in_start, in_end) << "\n";
     return iters;
 }
 
@@ -342,8 +277,6 @@ int_fast64_t solver_verbose(wordlist_t &words,
  * @param pattern_matrix the coloring pattern matrrx.
  * @param prior_sum - The sum of all prior weights, returned by the function
  *                    that generates the vector of prior weights
- * @param mode - 'g' for guess parallel, 'c' for candidate parallel, 'h' for hybrid
- * @param capacity - The capacity of the scratch space (hybrid )
  * @param answer - The WORD INDEX of the correct word.
  * @param capacity - The capacity of the scratch space (hybrid)
  * @param rebuild - Whether to rebuild words across iterations
@@ -353,10 +286,6 @@ int_fast64_t solver_verbose(wordlist_t &words,
 */
 int solver(priors_t &priors,
             std::vector<std::vector<coloring_t>> &pattern_matrix,
-            std::vector<index_t> &src_idx,
-            std::vector<index_t> &src_idx_scratch,
-            priors_t &priors_scratch,
-            std::vector<std::vector<coloring_t>> &patterns_scratch,
             int &answer,
             float prior_sum,
             char mode,
@@ -549,77 +478,6 @@ int solver(priors_t &priors,
                     prior_sum += priors[i];
                 }
             }
-        } else {
-            // Rebuild by pushing values to start of arrays
-            // First deep copy
-            prior_sum = 0.0f;
-
-            int _write = 0;  // This will keep track of the global write index after parallel computation
-
-            // concat reduce parallel
-            // #pragma omp parallel
-            // {
-            //     int local_write = 0;
-            //     std::vector<int> local_priors_scratch;
-            //     std::vector<int> local_src_idx_scratch;
-            //     std::vector<std::vector<int>> local_patterns_scratch(num_words);
-
-            //     // Reduction variables for local thread
-            //     int local_prior_sum = 0;
-
-            //     #pragma omp for schedule(dynamic, 64)
-            //     for (int _read = 0; _read < words_remaining; _read++) {
-            //         if ((*patterns_ref)[guess][_read] == feedback) {
-            //             int prior_read = (*priors_ref)[_read];
-            //             local_priors_scratch.push_back(prior_read);
-            //             local_prior_sum += prior_read;
-            //             local_src_idx_scratch.push_back((*src_idx_ref)[_read]);
-
-            //             for (int k = 0; k < num_words; k++) {
-            //                 local_patterns_scratch[k].push_back((*patterns_ref)[k][_read]);
-            //             }
-            //             local_write++;
-            //         }
-            //     }
-
-            //     // Critical section to merge local buffers into the global buffers
-            //     #pragma omp critical
-            //     {
-            //         int start_idx = _write;
-            //         for (int i = 0; i < local_write; i++) {
-            //             priors_scratch[start_idx + i] = local_priors_scratch[i];
-            //             src_idx_scratch[start_idx + i] = local_src_idx_scratch[i];
-            //             for (int k = 0; k < num_words; k++) {
-            //                 patterns_scratch[k][start_idx + i] = local_patterns_scratch[k][i];
-            //             }
-            //         }
-            //         _write += local_write;  // Update the global index after local writes
-            //         prior_sum += local_prior_sum;  // Accumulate the sum of priors
-            //     }
-            // }
-
-            // serial rebuild
-            for (int _read = 0; _read < words_remaining; _read++){
-                if ((*patterns_ref)[guess][_read] == feedback) {
-                    int prior_read = (*priors_ref)[_read];
-                    priors_scratch[_write] = prior_read;
-                    prior_sum += prior_read;
-                    src_idx_scratch[_write] = (*src_idx_ref)[_read];
-                    for (int k = 0; k < num_words; k++){
-                        patterns_scratch[k][_write] = (*patterns_ref)[k][_read];
-                    }
-                    _write++;
-                }
-            }
-            words_remaining = _write;
-            src_idx_scratch.resize(words_remaining);
-            priors_scratch.resize(words_remaining);
-            for (int i = 0; i < num_words; i++){
-                patterns_scratch[i].resize(words_remaining);
-            }
-            src_idx_ref = &src_idx_scratch;
-            priors_ref = &priors_scratch;
-            patterns_ref = &patterns_scratch;
         }
         auto update_end = timestamp;
         rebuild_time[iters] = TIME(update_start, update_end);
@@ -656,12 +514,9 @@ int main(int argc, char **argv) {
     int num_threads = 0;
     bool verbose = false;
     bool rand_prior = false;
-    bool rebuild = false;
     int opt;
-    int capacity = 4;
-    char mode = '\0';
     // Read program parameters
-    while ((opt = getopt(argc, argv, "f:n:p:t:m:c:x:brv")) != -1) {
+    while ((opt = getopt(argc, argv, "f:n:p:t:m:rv")) != -1) {
         switch (opt) {
         case 'f':
             text_filename = optarg;
@@ -677,15 +532,6 @@ int main(int argc, char **argv) {
             break;
         case 'm':
             wordlen = atoi(optarg);
-            break;
-        case 'c':
-            capacity = atoi(optarg);
-            break;
-        case 'x':
-            mode = *optarg;
-            break;
-        case 'b':
-            rebuild = true;
             break;
         case 'r':
             rand_prior = true;
@@ -760,7 +606,7 @@ int main(int argc, char **argv) {
 
     // IO Complete
     auto init_end = timestamp;
-        std::cout << "IO Initialization: " << TIME(init_start, init_end) << "\n";
+        std::cout << "Initialization: " << TIME(init_start, init_end) << "\n";
 
     auto precompute_start = timestamp;
     // Precompute the coloring matrix
@@ -785,20 +631,6 @@ int main(int argc, char **argv) {
         }
     }
     std::cout << "Pre-processing: " << TIME(precompute_start, precompute_end) << "\n";
-    if (rebuild) {
-        std::cout << "Rebuild\n";
-    } else {
-        std::cout << "No Rebuild\n";
-    }
-    if (mode == 'c') {
-        std::cout << "Parallel Mode: Candidate Parallel\n";
-    } else if (mode == 'g') {
-        std::cout << "Parallel Mode: Guess Parallel\n";
-    } else if (mode == 's') {
-        std::cout << "Parallel Mode: Serial\n";
-    } else if (mode == 'h') {
-        std::cout << "Parallel Mode: Hybrid\n";
-    }
     // Benchmark all words in the test set.
     double time_total;
     int answer_index;
@@ -811,7 +643,6 @@ int main(int argc, char **argv) {
         answer_index = test_set[i];
         std::cout << "Benchmarking word: ";
             word_print(words[answer_index], 0, ' ');
-        
         if(verbose){
             rounds = solver_verbose(
                 words, 

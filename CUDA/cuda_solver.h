@@ -40,9 +40,6 @@ coloring_t *solver_feedback;
 int *       _CUDA_scratch_int;
 float *     _CUDA_scratch_float;
 
-// Temporary device memory for game results
-int *       solver_game_rounds;
-int *       solver_game_solved;
 
 public:
 
