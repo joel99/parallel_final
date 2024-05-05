@@ -101,6 +101,7 @@ void scatter_reduce_cap(std::vector<float> &data_in, // input
         This version uses limited capacity scratch, so we cannot have arbitrarily large queues.
     */
     int guesses = static_cast<int>(data_index.size());
+    int candidates = static_cast<int>(data_index[0].size());
     int colors = static_cast<int>(data_out[0].size());
     int capacity = static_cast<int>(scratch[0].size());
     // std::cout << "Guesses: " << guesses << " Colors: " << colors << " Capacity: " << capacity << "\n";
@@ -116,12 +117,12 @@ void scatter_reduce_cap(std::vector<float> &data_in, // input
 
     // Hypothetical gains over guess-parallel if shared cache can be leveraged
     // Manual
-    int candidate_span = ceil_xdivy(guesses, num_threads);
+    int candidate_span = ceil_xdivy(candidates, num_threads);
     #pragma omp parallel
     {
         int thread_id = omp_get_thread_num();
         int read_min = candidate_span * thread_id;
-        int read_max = std::min(read_min + candidate_span, guesses);
+        int read_max = std::min(read_min + candidate_span, candidates);
 
         int idx;
 
