@@ -6,16 +6,14 @@ import seaborn as sns
 
 ghc_result = pd.read_csv('openMP/benchmark_results_main.csv')
 
-serial_df = ghc_result[ghc_result['mode'] == 'S']
-# print(serial_df)
-# Compute normative times for input/output pairs
-# print(serial_df.groupby('input')['time'].transform(lambda x: x.mean()))
-mean_times = serial_df.groupby(['input', 'output'])['time'].mean().reset_index()
-mean_times.rename(columns={'time': 'avg_time'}, inplace=True)
-print(mean_times)
-ghc_result = ghc_result.merge(mean_times, on=['input', 'output'], how='left')
-ghc_result['speedup'] = ghc_result['avg_time'] / ghc_result['time']
-print(ghc_result.head())
+serial_df = ghc_result[ghc_result['mode'] == 's']
+print(serial_df)
+# mean_times = serial_df.groupby(['input', 'output'])['time'].mean().reset_index()
+# mean_times.rename(columns={'time': 'avg_time'}, inplace=True)
+# print(mean_times)
+# ghc_result = ghc_result.merge(mean_times, on=['input', 'output'], how='left')
+# ghc_result['speedup'] = ghc_result['avg_time'] / ghc_result['time']
+# print(ghc_result.head())
 
 #%%
 # plot serial times

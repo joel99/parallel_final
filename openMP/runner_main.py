@@ -32,6 +32,9 @@ specific_params.append(
 specific_params.append(
     {'-x': 's', '-c': 1}
 )
+specific_params.append(
+    {'-x': 's', '-c': 1, '-b': ''}
+)
 # Cross product specific with common parameters
 exp_params = []
 
