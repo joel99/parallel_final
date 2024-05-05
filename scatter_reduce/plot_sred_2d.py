@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import seaborn as sns
 
-ghc_result = pd.read_csv('scatter_reduce/ghc_benchmark_results.csv')
+ghc_result = pd.read_csv('scatter_reduce/ghc_benchmark_results_2d.csv')
 
 serial_df = ghc_result[ghc_result['mode'] == 'S']
 # print(serial_df)
@@ -30,62 +30,76 @@ plt.legend(title='Scatter Output')
 # set labels to "Input Size" and "Time (s)"
 plt.xlabel('Input Size')
 plt.ylabel('Time (s)')
-plt.title('Serial Execution Time (1D)')
+plt.title('Serial Execution Time (2D)')
+
 #%%
-lock_df = ghc_result[ghc_result['mode'] == 'L']
+lock_df = ghc_result[ghc_result['mode'] == 'C']
 print(lock_df)
 sns.set_style("whitegrid")
 sns.despine()
-# facet by l_value
-palette = sns.color_palette("flare", lock_df['threads'].nunique())
-g = sns.FacetGrid(lock_df, row='l_value', col='output', hue='threads', palette=palette)
+# capacity plots
+palette = sns.color_palette("flare", lock_df['capacity'].nunique())
+g = sns.FacetGrid(lock_df, row='capacity', col='output', hue='threads', palette=palette)
 g.map(sns.lineplot, 'input', 'speedup')
 g.set_axis_labels('Input Size', 'Speedup')
-g.set_titles('Locks: {row_name} Output Size: {col_name}')
+g.set_titles('Cap: {row_name} Output: {col_name}')
+
+plt.rcParams.update({'font.size': 16})
+plt.locator_params(axis='x', nbins=5)
+plt.locator_params(axis='y', nbins=5)
 # show legend
 g.add_legend()
 
 #%%
-reduct_df = ghc_result[ghc_result['mode'] == 'R']
-f = plt.figure(figsize=(6, 6))
-# ax = sns.scatterplot(data=reduct_df, x='input', y='output', hue='speedup', palette=palette, ax=f.gca())
-g = sns.FacetGrid(reduct_df, col='output', hue='threads', palette=palette)
+palette = sns.color_palette("flare", ghc_result['threads'].nunique())
+reduct_df = ghc_result[ghc_result['mode'].isin(['R', 'G'])]
+g = sns.FacetGrid(reduct_df, row='mode', col='output', hue='threads', palette=palette)
 g.map(sns.lineplot, 'input', 'speedup')
 # labels
 sns.set_style("whitegrid")
 sns.despine()
+# large font size
+plt.rcParams.update({'font.size': 16})
+plt.locator_params(axis='x', nbins=5)
+plt.locator_params(axis='y', nbins=5)
 g.set_axis_labels('Input Size', 'Speedup')
 g.set_titles('Output Size: {col_name}')
-g.add_legend()
+# set row labels - Guess speedup vs Hybrid speedup, respectively
+# label the first row "Guess" and the second row "Hybrid"
+g.add_legend(title='Threads')
 
 #%%
-reduct_df = ghc_result[ghc_result['mode'] == 'M']
+reduct_df = ghc_result[ghc_result['mode'] == 'G']
 f = plt.figure(figsize=(6, 6))
 # ax = sns.scatterplot(data=reduct_df, x='input', y='output', hue='speedup', palette=palette, ax=f.gca())
 g = sns.FacetGrid(reduct_df, col='output', hue='threads', palette=palette)
 g.map(sns.lineplot, 'input', 'speedup')
 # labels
+plt.rcParams.update({'font.size': 16})
+plt.locator_params(axis='x', nbins=5)
+plt.locator_params(axis='y', nbins=5)
 sns.set_style("whitegrid")
 sns.despine()
 g.set_axis_labels('Input Size', 'Speedup')
 g.set_titles('Output Size: {col_name}')
-g.add_legend()
+g.add_legend(title='Threads')
+
+
 
 #%%
 # mode = M and mode = R have identical parameter ranges, compare them
-
-comp_df = ghc_result[ghc_result['mode'].isin(['M', 'R'])]
+comp_df = ghc_result[(ghc_result['mode'] == 'G') | ((ghc_result['mode'] == 'C') & (ghc_result['capacity'] == 3))]
 pivot_df = comp_df.pivot_table(index=['input', 'output', 'threads'], columns='mode', values='speedup').reset_index()
 
 # Drop any rows that do not have both 'M' and 'R' values to ensure direct comparability
-pivot_df = pivot_df.dropna(subset=['M', 'R'])
+pivot_df = pivot_df.dropna(subset=['G', 'C'])
 plt.figure(figsize=(6, 6))
-sns.scatterplot(data=pivot_df, x='R', y='M', hue='threads', palette='viridis', s=100)
+sns.scatterplot(data=pivot_df, x='G', y='C', hue='threads', palette='viridis', s=100)
 
 # Enhance the plot
-plt.title('(1D) Speedup: Manual vs OMP Reduce')
-plt.xlabel('Speedup - Manual')
-plt.ylabel('Speedup - OMP Reduce')
+plt.title('(2D) Speedup over Problem Sizes')
+plt.xlabel('Speedup - Guess/Data Parallel')
+plt.ylabel('Speedup - Hybrid Parallel')
 plt.axline((1, 1), slope=1, color='red', linestyle='--')  # Adding a diagonal line for reference
 # match axes
 plt.gca().set_aspect('equal', adjustable='box')
@@ -94,7 +108,6 @@ plt.locator_params(axis='x', nbins=5)
 plt.locator_params(axis='y', nbins=5)
 plt.xlim(0, 4)
 plt.ylim(0, 4)
-plt.legend(title='Threads')
 # Show the plot
 plt.grid(True)
 plt.show()
