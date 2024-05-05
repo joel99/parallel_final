@@ -9,7 +9,7 @@ Final project for 15418/618. Songyu Han and Joel Ye
 - [Proposal](static/proposal.md)
 - [Proposal Revised](static/proposal_revised.md)
 - [Checkpoint Report](static/milestone.md)
-- Final (TODO)
+- [Final](static/final.md)
 
 ---
 ## Proposal (Posted on main for convenience)
@@ -67,7 +67,7 @@ We also feel it's likely we will be able to provide a CUDA implementation of thi
 
 We will begin with a low-worker count parallelism to get a sense of the problem scale. It may not be sufficiently large to justify many more cores or a GPU implementation (since the naive approach was suitable for the resource video.) If we do not get a satisfactory speedup, a GPU implementation would be interesting as the innnermost string comparison is a heterogeneous operation, and would perhaps motivate using a big lookup table instead of computing it on the fly.
 
-## Schedule
+## Proposal Schedule
 - 4/2:
   - provide a serial implementation with uniform prior over words. (Stretch: Integrate external word frequency prior)
 - 4/8:
