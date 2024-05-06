@@ -65,7 +65,7 @@ Our current progress mostly aligns with our initial expectations and it is likel
 
 One item worth mentioning is that we are somewhat underwhelmed by the performance of parallel scatter reduce. On one of the team member's personal computer (Macbook Pro 16 inch, 8 Core i9-9880H CPU), all of our current parallel scatter reduce implementations perform significantly worse than our sequential baseline on the typical input sizes used in the wordle solver (10 to 20 thousand input items, and an output dimension of 243), and the performance gain due to parallelism on very large data sets is also very limited. We propose improving the locality of memory access by sorting the input arrays, but we are especially concerned as sorting inherently requires more work than the actual scatter reduce operation. However, it is likely for us to incorporate some ideas in the sparse matrix vector multiplication approach into our CUDA scatter reduce implementtion.
 
-## Updated Project Goals and Schedules (As of May 3rd)
+## Updated Project Goals and Schedules (As of May 6th)
 - Week 4/12:
   - 🔴 Provide a serial CPU C++ and pytorch (python with C++ bindings) implementation of the V1 algorithm. (Completed, SH & JY)
   - 🔴 Analyze sequential algorithm and determine multiple parallel appraoches to the Wordle solver. (Completed, SH & JY)
@@ -79,14 +79,14 @@ One item worth mentioning is that we are somewhat underwhelmed by the performanc
   - 🔴 Implement message-passing solver with MPI (Finished, SH)
   - 🔴 Start to implement GPU solver in CUDA (Finished, SH)
 - Week 4/22 (First Half):
-  - 🔵 Experiment with coloring matrix partitioning or on the fly coloring computation. (In Progress, JY & SH)
-  - 🔵 Profile and optimize workload balancing across turns. (In Progress, JY)
+  - 🔴 Experiment with coloring matrix partitioning or on the fly coloring computation. (Completed, SH)
+  - 🔴 Profile and optimize workload balancing across turns. (Completed, JY)
 - Week 4/22 (Second Half):
-  - 🔵 Continue Optimizing the CUDA Solver (In Progress, SH)
-  - 🔴 Scale problem size in number of letters (up to 7) (Finished, JY)
+  - 🔴 Continue Optimizing the CUDA Solver (Somewhat Completed, SH)
+  - 🔴 Scale problem size in number of letters (up to 7) (Completed, JY)
 - Week 4/29 (First Half):
-  - 🔵 Profile and analyze performance characteristics of GPU solver (In Progress, SH)
-  - 🔵 Perform problem size sensitivity analysis (In Progress, JY)
+  - 🔴 Profile and analyze performance characteristics of GPU solver (Completed, SH)
+  - 🔴 Perform problem size sensitivity analysis (Completed, JY & SH)
   - ⚫ Hope to Achieve: extend problem size in number of boards to solve. (Task Removed: Not likely to finish.)
 - Week 4/29 (Second Half): 
-  🔵 Writing up report and preparing poster. (In Progress, SH & JY)
+  🔴 Writing up report and preparing poster. (Completed, SH & JY)
