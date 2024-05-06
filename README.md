@@ -67,21 +67,29 @@ We also feel it's likely we will be able to provide a CUDA implementation of thi
 
 We will begin with a low-worker count parallelism to get a sense of the problem scale. It may not be sufficiently large to justify many more cores or a GPU implementation (since the naive approach was suitable for the resource video.) If we do not get a satisfactory speedup, a GPU implementation would be interesting as the innnermost string comparison is a heterogeneous operation, and would perhaps motivate using a big lookup table instead of computing it on the fly.
 
-## Proposal Schedule
-- 4/2:
-  - provide a serial implementation with uniform prior over words. (Stretch: Integrate external word frequency prior)
-- 4/8:
-  - provide test-bank evaluator and gather statistics about serial solve times.
-  - implement base passes on guess level and/or candidate level parallelism.
-- 4/15 (4/16 milestone report)
-  - optimize (e.g. load balance, minimize communication, local aggregation) and profile the two types of parallelism; compare against serial in report.
-- 4/22
-  - profile workload variability across different iterations of a solve and propose an adaptive parallelism strategy OR
-  - implement CUDA solution, targeting candidate parallelism or both (since many threads to work with now)
-- 4/29
-  - identify limiting factors in current solutions  
-  - experiment with algorithmic improvements: outer-loop optimization of value function, 2+ depth search.
-  - experiment with parallelization improvements: attempts to minimize redundant calculation
-- 5/5  
-  - Writing up report and preparing poster.
+## Proposal Schedule (Progress Updated as of May 6th)
+- Week 4/12:
+  - 🔴 Provide a serial CPU C++ and pytorch (python with C++ bindings) implementation of the V1 algorithm. (Completed, SH & JY)
+  - 🔴 Analyze sequential algorithm and determine multiple parallel appraoches to the Wordle solver. (Completed, SH & JY)
+  - 🔴 Implement first OpenMP parallel program on the candidate guess loop. (Completed, SH)
+  - 🔴 Provide test-bank evaluator and profile the two implementations on 5-letter wordle. (Completed, SH & JY)
+- Week 4/15 (First Half):
+  - 🔴 Implement and profile guess level and candidate level parallelism while optimizing for memory locality and minimizing scatter reduce contention. (Finished, SH & JY)
+  - 🔴 Evaluate performance characteristics of various implementations of scatter reduce and map reduce. (Finished, JY)
+- Week 4/15 (Second Half):
+  - ⚫ Evaluate correctness degradation with reduced synchronization on reduction. (Task Removed: Not Necessary for this study.)
+  - 🔴 Implement message-passing solver with MPI (Finished, SH)
+  - 🔴 Start to implement GPU solver in CUDA (Finished, SH)
+- Week 4/22 (First Half):
+  - 🔴 Experiment with coloring matrix partitioning or on the fly coloring computation. (Completed, SH)
+  - 🔴 Profile and optimize workload balancing across turns. (Completed, JY)
+- Week 4/22 (Second Half):
+  - 🔴 Continue Optimizing the CUDA Solver (Somewhat Completed, SH)
+  - 🔴 Scale problem size in number of letters (up to 7) (Completed, JY)
+- Week 4/29 (First Half):
+  - 🔴 Profile and analyze performance characteristics of GPU solver (Completed, SH)
+  - 🔴 Perform problem size sensitivity analysis (Completed, JY & SH)
+  - ⚫ Hope to Achieve: extend problem size in number of boards to solve. (Task Removed: Not likely to finish.)
+- Week 4/29 (Second Half): 
+  - 🔴 Writing up report and preparing poster. (Completed, SH & JY)
 
